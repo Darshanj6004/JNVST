@@ -130,23 +130,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (!email.includes("@")) {
         if (role === "teacher") {
-          // Look up teacher's real email from profiles → auth.users
-          const { data: profile } = await supabase
-            .from("profiles")
-            .select("id")
-            .eq("username", email)
-            .eq("role", "teacher")
-            .maybeSingle();
+          // Look up teacher's email via RPC (SECURITY DEFINER can read auth.users)
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const { data: emailData, error: lookupErr } = await (supabase.rpc as any)(
+            "get_teacher_email_by_username",
+            { p_username: email }
+          );
 
-          if (profile) {
-            // We can't get the email from profiles, but teacher was created via UI
-            // so the email is the one they entered. For now support direct email too.
-            // Fallback: teacher must enter their actual email if username not recognized
-            setError("Please enter your full email address (e.g. teacher.sunita@gmail.com).");
+          if (lookupErr || !emailData) {
+            setError("Teacher not found. Check your username or use your email address.");
             setLoading(false);
             return;
           }
-          // Already is an email
+          email = emailData as string;
         } else {
           // Student: look up by username or roll_number → get their @navodayaprep.edu email
           const { data: profile } = await supabase

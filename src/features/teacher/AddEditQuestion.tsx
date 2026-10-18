@@ -1,12 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
-import { ArrowLeft, Check, Eye, Image, ImagePlus, Save, X } from "lucide-react";
+import { ArrowLeft, Check, Eye, Image, ImagePlus, Loader2, Save, X } from "lucide-react";
 import { Badge, Button, Card, CardBody, CardHeader, Field, Input, Select, Textarea, useToast } from "@/ui";
 import { PageHeader } from "@/components/PageHeader";
-import { QuestionCard } from "@/components/QuestionCard";
 import { subjects } from "@/data/subjects";
-import { questions } from "@/data/questions";
 import { cn } from "@/lib/cn";
+import { supabase } from "@/lib/supabaseClient";
 
 const letters = ["A", "B", "C", "D"];
 
@@ -154,36 +153,122 @@ function OptionRow({
 
 // ── main component ────────────────────────────────────────────────────────────
 
+type ExistingQ = {
+  id: string;
+  subject_code: string;
+  topic_name: string;
+  difficulty: "easy" | "medium" | "hard";
+  question_text: string;
+  option_a: string;
+  option_b: string;
+  option_c: string;
+  option_d: string;
+  correct_option: "A" | "B" | "C" | "D";
+  marks: number;
+  explanation: string | null;
+  image_url: string | null;
+};
+
+const codeById: Record<string, string> = {
+  mat: "mental_ability",
+  ari: "arithmetic",
+  lan: "language",
+};
+const idByCode: Record<string, string> = {
+  mental_ability: "mat",
+  arithmetic: "ari",
+  language: "lan",
+};
+
 export default function AddEditQuestion() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const existing = id ? questions.find((q) => q.id === id) : undefined;
-  const isEdit = Boolean(existing);
+  const isEdit = Boolean(id);
 
-  const [subjectId, setSubjectId] = useState(existing?.subjectId ?? subjects[0].id);
-  const [topicId, setTopicId] = useState(existing?.topicId ?? subjects[0].topics[0].id);
-  const [difficulty, setDifficulty] = useState(existing?.difficulty ?? "easy");
-  const [text, setText] = useState(existing?.text ?? "");
-  const [imageUrl, setImageUrl] = useState(existing?.imageUrl ?? "");
-  const [options, setOptions] = useState<string[]>(existing?.options ?? ["", "", "", ""]);
-  const [optionImages, setOptionImages] = useState<string[]>(
-    existing?.optionImages?.map((v) => v ?? "") ?? ["", "", "", ""],
-  );
-  const [answer, setAnswer] = useState(existing?.answer ?? 0);
-  const [marks, setMarks] = useState(existing?.marks ?? 1.25);
-  const [explanation, setExplanation] = useState(existing?.explanation ?? "");
+  const [loadingData, setLoadingData] = useState(isEdit);
+  const [saving, setSaving] = useState(false);
+
+  const [subjectId, setSubjectId] = useState(subjects[0].id);
+  const [topicName, setTopicName] = useState(subjects[0].topics[0].name);
+  const [difficulty, setDifficulty] = useState<"easy" | "medium" | "hard">("easy");
+  const [text, setText] = useState("");
+  const [imageUrl, setImageUrl] = useState("");
+  const [options, setOptions] = useState(["", "", "", ""]);
+  const [answer, setAnswer] = useState(0); // 0=A,1=B,2=C,3=D
+  const [marks, setMarks] = useState(1.25);
+  const [explanation, setExplanation] = useState("");
+
+  // Load existing question for edit
+  useEffect(() => {
+    if (!id) return;
+    setLoadingData(true);
+    supabase
+      .from("questions_view" as never)
+      .select("*")
+      .eq("id", id)
+      .single()
+      .then(({ data, error }) => {
+        if (error || !data) {
+          toast({ type: "error", title: "Question not found", message: "Could not load question." });
+          navigate("/teacher/questions");
+          return;
+        }
+        const q = data as ExistingQ;
+        setSubjectId(idByCode[q.subject_code] ?? subjects[0].id);
+        setTopicName(q.topic_name);
+        setDifficulty(q.difficulty);
+        setText(q.question_text);
+        setImageUrl(q.image_url ?? "");
+        setOptions([q.option_a, q.option_b, q.option_c, q.option_d]);
+        setAnswer(["A", "B", "C", "D"].indexOf(q.correct_option));
+        setMarks(q.marks);
+        setExplanation(q.explanation ?? "");
+        setLoadingData(false);
+      });
+  }, [id, navigate, toast]);
 
   const topics = subjects.find((s) => s.id === subjectId)?.topics ?? [];
 
   function setOptionText(i: number, v: string) {
     setOptions((o) => o.map((x, xi) => (xi === i ? v : x)));
   }
-  function setOptionImage(i: number, v: string) {
-    setOptionImages((o) => o.map((x, xi) => (xi === i ? v : x)));
-  }
 
-  const save = () => {
+  const save = async () => {
+    if (!text.trim()) {
+      toast({ type: "error", title: "Question text required", message: "Please enter the question." });
+      return;
+    }
+    if (options.some((o) => !o.trim())) {
+      toast({ type: "error", title: "All options required", message: "Fill in all 4 answer options." });
+      return;
+    }
+
+    setSaving(true);
+    const { error } = await supabase.rpc("upsert_question", {
+      p_subject_code: codeById[subjectId],
+      p_topic_name: topicName,
+      p_difficulty: difficulty,
+      p_question_text: text.trim(),
+      p_option_a: options[0].trim(),
+      p_option_b: options[1].trim(),
+      p_option_c: options[2].trim(),
+      p_option_d: options[3].trim(),
+      p_correct_option: letters[answer],
+      p_marks: marks,
+      p_explanation: explanation.trim() || null,
+      p_image_url: imageUrl.trim() || null,
+      p_question_id: id ?? null,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    setSaving(false);
+
+    if (error) {
+      toast({ type: "error", title: "Save failed", message: error.message });
+      return;
+    }
+
     toast({
       type: "success",
       title: isEdit ? "Question updated" : "Question added",
@@ -192,21 +277,13 @@ export default function AddEditQuestion() {
     navigate("/teacher/questions");
   };
 
-  const previewQ = {
-    id: "preview",
-    subjectId,
-    topicId,
-    difficulty: difficulty as "easy" | "medium" | "hard",
-    text: text || "Your question text will appear here…",
-    imageUrl: imageUrl || undefined,
-    options: options.map((o, i) => o || `Option ${letters[i]}`),
-    optionImages: optionImages.map((v) => v || undefined),
-    answer,
-    marks,
-    explanation: explanation || "Explanation will appear here after submission.",
-    updatedAt: new Date().toISOString(),
-    usedCount: 0,
-  };
+  if (loadingData) {
+    return (
+      <div className="flex items-center justify-center py-32">
+        <Loader2 className="size-8 animate-spin text-brand-400" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -219,7 +296,7 @@ export default function AddEditQuestion() {
 
       <PageHeader
         title={isEdit ? "Edit question" : "Add question"}
-        description="Tag with subject, topic and difficulty. Add images to the question stem or individual options."
+        description="Tag with subject, topic and difficulty. Add an image URL to attach a figure."
       />
 
       <div className="grid gap-6 lg:grid-cols-[1.3fr_1fr]">
@@ -234,7 +311,7 @@ export default function AddEditQuestion() {
                   onChange={(e) => {
                     setSubjectId(e.target.value);
                     const t = subjects.find((s) => s.id === e.target.value)?.topics[0];
-                    if (t) setTopicId(t.id);
+                    if (t) setTopicName(t.name);
                   }}
                 >
                   {subjects.map((s) => (
@@ -245,9 +322,9 @@ export default function AddEditQuestion() {
                 </Select>
               </Field>
               <Field label="Topic">
-                <Select value={topicId} onChange={(e) => setTopicId(e.target.value)}>
+                <Select value={topicName} onChange={(e) => setTopicName(e.target.value)}>
                   {topics.map((t) => (
-                    <option key={t.id} value={t.id}>
+                    <option key={t.id} value={t.name}>
                       {t.name}
                     </option>
                   ))}
@@ -269,7 +346,7 @@ export default function AddEditQuestion() {
           <Card>
             <CardHeader
               title="Question stem"
-              subtitle="Write the question text, then optionally attach a figure or diagram"
+              subtitle="Write the question text, then optionally attach a figure URL"
             />
             <CardBody className="space-y-4">
               <Field label="Question text">
@@ -297,7 +374,7 @@ export default function AddEditQuestion() {
           <Card>
             <CardHeader
               title="Answer options"
-              subtitle="Click a letter badge to mark the correct answer · use the image icon to attach a figure to an option"
+              subtitle="Click a letter badge to mark the correct answer"
             />
             <CardBody className="space-y-2.5">
               {options.map((opt, i) => (
@@ -305,10 +382,10 @@ export default function AddEditQuestion() {
                   key={i}
                   index={i}
                   value={opt}
-                  imageUrl={optionImages[i]}
+                  imageUrl=""
                   isAnswer={answer === i}
                   onTextChange={(v) => setOptionText(i, v)}
-                  onImageChange={(v) => setOptionImage(i, v)}
+                  onImageChange={() => {}}
                   onSelectAnswer={() => setAnswer(i)}
                 />
               ))}
@@ -342,8 +419,12 @@ export default function AddEditQuestion() {
             <Link to="/teacher/questions">
               <Button variant="secondary">Cancel</Button>
             </Link>
-            <Button onClick={save} leftIcon={<Save className="size-4" />}>
-              {isEdit ? "Save changes" : "Add question"}
+            <Button
+              onClick={save}
+              disabled={saving}
+              leftIcon={saving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
+            >
+              {saving ? "Saving…" : isEdit ? "Save changes" : "Add question"}
             </Button>
           </div>
         </div>
@@ -360,8 +441,51 @@ export default function AddEditQuestion() {
                 </Badge>
               }
             />
-            <CardBody>
-              <QuestionCard question={previewQ} index={0} selected={answer} reveal />
+            <CardBody className="space-y-4">
+              <div className="rounded-xl border border-line bg-slate-50 p-4 space-y-3">
+                <p className="text-sm font-medium text-ink">
+                  {text || "Your question text will appear here…"}
+                </p>
+                {imageUrl && (
+                  <img
+                    src={imageUrl}
+                    alt="Question figure"
+                    className="w-full rounded-lg border border-line object-contain max-h-40"
+                  />
+                )}
+                <div className="space-y-2">
+                  {options.map((opt, i) => (
+                    <div
+                      key={i}
+                      className={cn(
+                        "flex items-center gap-2.5 rounded-lg border px-3 py-2 text-sm",
+                        answer === i
+                          ? "border-success/40 bg-success-soft/30 text-ink"
+                          : "border-line bg-white text-muted",
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "flex size-6 shrink-0 items-center justify-center rounded-md text-xs font-bold",
+                          answer === i ? "bg-success text-white" : "bg-slate-100 text-muted",
+                        )}
+                      >
+                        {answer === i ? <Check className="size-3.5" /> : letters[i]}
+                      </span>
+                      {opt || `Option ${letters[i]}`}
+                    </div>
+                  ))}
+                </div>
+                <div className="flex items-center justify-between text-[11px] text-muted border-t border-line pt-2">
+                  <span>
+                    Subject: <strong>{subjects.find((s) => s.id === subjectId)?.short}</strong>
+                  </span>
+                  <span>Marks: <strong>{marks}</strong></span>
+                  <Badge tone={difficulty === "easy" ? "success" : difficulty === "medium" ? "warning" : "danger"} className="text-[10px]">
+                    {difficulty}
+                  </Badge>
+                </div>
+              </div>
             </CardBody>
           </Card>
         </div>
