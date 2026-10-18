@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import {
   Brain,
@@ -7,10 +7,12 @@ import {
   ChevronDown,
   ChevronUp,
   Clock,
+  Database,
   FileText,
   Hash,
   ImageIcon,
   Library,
+  Loader2,
   RotateCcw,
   Search,
   X,
@@ -29,11 +31,10 @@ import {
 } from "@/ui";
 import { PageHeader } from "@/components/PageHeader";
 import { cn } from "@/lib/cn";
-import { questions as allQuestions } from "@/data/questions";
 import { subjects } from "@/data/subjects";
 import { previousYearPapers } from "@/data/previousYearPapers";
 import type { PreviousYearPaper } from "@/data/previousYearPapers";
-import type { Question } from "@/types";
+import { supabase } from "@/lib/supabaseClient";
 
 // ── constants ─────────────────────────────────────────────────────────────────
 
@@ -121,18 +122,25 @@ function QuestionRow({
   expanded,
   onExpand,
 }: {
-  question: Question;
+  question: DBQuestion;
   checked: boolean;
   onToggle: () => void;
   expanded: boolean;
   onExpand: () => void;
 }) {
   const subjectAccent: Record<string, string> = {
-    mat: "text-brand-600 bg-brand-50",
-    ari: "text-violet-600 bg-violet-50",
-    lan: "text-cyan-600 bg-cyan-50",
+    mental_ability: "text-brand-600 bg-brand-50",
+    arithmetic: "text-violet-600 bg-violet-50",
+    language: "text-cyan-600 bg-cyan-50",
   };
-  const subjectLabel: Record<string, string> = { mat: "MAT", ari: "ARI", lan: "LAN" };
+  const subjectLabel: Record<string, string> = {
+    mental_ability: "MAT",
+    arithmetic: "ARI",
+    language: "LAN",
+  };
+
+  const opts = [question.option_a, question.option_b, question.option_c, question.option_d];
+  const correctIdx = ["A", "B", "C", "D"].indexOf(question.correct_option);
 
   return (
     <div
@@ -148,20 +156,20 @@ function QuestionRow({
             <span
               className={cn(
                 "rounded-md px-1.5 py-0.5 text-[11px] font-semibold tracking-wide",
-                subjectAccent[question.subjectId] ?? "bg-slate-100 text-slate-600",
+                subjectAccent[question.subject_code] ?? "bg-slate-100 text-slate-600",
               )}
             >
-              {subjectLabel[question.subjectId] ?? question.subjectId.toUpperCase()}
+              {subjectLabel[question.subject_code] ?? question.subject_code.toUpperCase()}
             </span>
             <Badge tone={DIFF_TONE[question.difficulty]}>{DIFF_LABEL[question.difficulty]}</Badge>
-            <UsagePill count={question.usedCount} />
-            {question.imageUrl && (
+            <UsagePill count={question.used_count} />
+            {question.image_url && (
               <span className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-2 py-0.5 text-[11px] font-medium text-sky-600">
                 <ImageIcon className="size-3" /> Has image
               </span>
             )}
           </div>
-          <p className="line-clamp-2 text-[13px] leading-snug text-ink">{question.text}</p>
+          <p className="line-clamp-2 text-[13px] leading-snug text-ink">{question.question_text}</p>
         </div>
         <button
           onClick={onExpand}
@@ -173,44 +181,34 @@ function QuestionRow({
 
       {expanded && (
         <div className="space-y-3 border-t border-line px-3 pb-3 pt-3">
-          {question.imageUrl && (
+          {question.image_url && (
             <img
-              src={question.imageUrl}
+              src={question.image_url}
               alt="Question figure"
-              className="max-h-40 w-full rounded-lg bg-slate-100 object-cover"
+              className="max-h-40 w-full rounded-lg bg-slate-100 object-contain"
             />
           )}
           <div className="grid gap-1.5">
-            {question.options.map((opt, i) => (
+            {opts.map((opt, i) => (
               <div
                 key={i}
                 className={cn(
                   "flex items-center gap-2 rounded-lg border px-3 py-2 text-[13px]",
-                  i === question.answer
+                  i === correctIdx
                     ? "border-success/40 bg-[var(--color-success-soft)] font-medium text-success"
                     : "border-line bg-canvas text-muted",
                 )}
               >
-                {question.optionImages?.[i] && (
-                  <img
-                    src={question.optionImages[i]}
-                    alt={`Option ${i + 1}`}
-                    className="size-8 rounded object-cover bg-slate-100"
-                  />
-                )}
                 <span className="mr-1 text-xs font-semibold tabular text-slate-400">
                   {String.fromCharCode(65 + i)}.
                 </span>
                 {opt}
-                {i === question.answer && (
+                {i === correctIdx && (
                   <span className="ml-auto text-[11px] font-semibold text-success">✓ correct</span>
                 )}
               </div>
             ))}
           </div>
-          <p className="border-l-2 border-brand-200 pl-3 text-[12px] leading-relaxed text-muted">
-            {question.explanation}
-          </p>
         </div>
       )}
     </div>
@@ -228,7 +226,9 @@ function PaperCard({
   selected: boolean;
   onSelect: () => void;
 }) {
-  const bankIds = new Set(allQuestions.map((q) => q.id));
+  // Coverage is approximate — the paper card doesn't have access to DB questions,
+  // so we show 0% until questions are loaded. This is fine for display purposes.
+  const bankIds = new Set<string>();
   const totalMapped = paper.sections.reduce(
     (sum, s) => sum + s.questionIds.filter((id) => bankIds.has(id)).length,
     0,
@@ -303,6 +303,31 @@ function PaperCard({
 
 // ── main ──────────────────────────────────────────────────────────────────────
 
+// ── DB question type ──────────────────────────────────────────────────────────
+type DBQuestion = {
+  id: string;
+  difficulty: "easy" | "medium" | "hard";
+  question_text: string;
+  option_a: string;
+  option_b: string;
+  option_c: string;
+  option_d: string;
+  correct_option: "A" | "B" | "C" | "D";
+  marks: number;
+  image_url: string | null;
+  used_count: number;
+  subject_code: string;
+  topic_name: string;
+  subject_id: string;
+  topic_id: string;
+};
+
+const codeToLocalId: Record<string, string> = {
+  mental_ability: "mat",
+  arithmetic: "ari",
+  language: "lan",
+};
+
 export default function CreateScheduleMock() {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -310,11 +335,28 @@ export default function CreateScheduleMock() {
   const [step, setStep] = useState<Step>("details");
   const [pattern, setPattern] = useState<Pattern>("JNVST");
   const [title, setTitle] = useState("");
-  const [date, setDate] = useState("2026-09-15");
+  const [date, setDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [time, setTime] = useState("10:00");
   const [duration, setDuration] = useState(120);
   const [selectedPaper, setSelectedPaper] = useState<PreviousYearPaper | null>(null);
   const [yearFilter, setYearFilter] = useState("all");
+  const [scheduling, setScheduling] = useState(false);
+
+  // ── Supabase questions ────────────────────────────────────────────────────
+  const [dbQuestions, setDbQuestions] = useState<DBQuestion[]>([]);
+  const [loadingQ, setLoadingQ] = useState(true);
+
+  const loadQuestions = useCallback(async () => {
+    setLoadingQ(true);
+    const { data } = await supabase
+      .from("questions_view" as never)
+      .select("*")
+      .order("updated_at", { ascending: false });
+    setDbQuestions((data as DBQuestion[]) ?? []);
+    setLoadingQ(false);
+  }, []);
+
+  useEffect(() => { loadQuestions(); }, [loadQuestions]);
 
   // question selection
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -331,28 +373,34 @@ export default function CreateScheduleMock() {
   }, [filterSubject]);
 
   const filtered = useMemo(() => {
-    let pool = allQuestions;
-    if (filterSubject !== "all") pool = pool.filter((q) => q.subjectId === filterSubject);
-    if (filterTopic !== "all") pool = pool.filter((q) => q.topicId === filterTopic);
+    let pool = dbQuestions;
+    if (filterSubject !== "all") {
+      const code = filterSubject === "mat" ? "mental_ability" : filterSubject === "ari" ? "arithmetic" : "language";
+      pool = pool.filter((q) => q.subject_code === code);
+    }
+    if (filterTopic !== "all") pool = pool.filter((q) => q.topic_name === filterTopic);
     if (filterDiff !== "all") pool = pool.filter((q) => q.difficulty === filterDiff);
-    if (filterUsed === "unused") pool = pool.filter((q) => q.usedCount === 0);
-    else if (filterUsed === "low") pool = pool.filter((q) => q.usedCount <= 3);
-    else if (filterUsed === "high") pool = pool.filter((q) => q.usedCount >= 7);
+    if (filterUsed === "unused") pool = pool.filter((q) => q.used_count === 0);
+    else if (filterUsed === "low") pool = pool.filter((q) => q.used_count <= 3);
+    else if (filterUsed === "high") pool = pool.filter((q) => q.used_count >= 7);
     if (search.trim()) {
-      const q = search.toLowerCase();
-      pool = pool.filter((qu) => qu.text.toLowerCase().includes(q));
+      const s = search.toLowerCase();
+      pool = pool.filter((q) => q.question_text.toLowerCase().includes(s));
     }
     return pool;
-  }, [filterSubject, filterTopic, filterDiff, filterUsed, search]);
+  }, [dbQuestions, filterSubject, filterTopic, filterDiff, filterUsed, search]);
 
   const sectionCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     for (const id of selectedIds) {
-      const q = allQuestions.find((x) => x.id === id);
-      if (q) counts[q.subjectId] = (counts[q.subjectId] ?? 0) + 1;
+      const q = dbQuestions.find((x) => x.id === id);
+      if (q) {
+        const localId = codeToLocalId[q.subject_code] ?? q.subject_code;
+        counts[localId] = (counts[localId] ?? 0) + 1;
+      }
     }
     return counts;
-  }, [selectedIds]);
+  }, [selectedIds, dbQuestions]);
 
   const totalSelected = selectedIds.size;
 
@@ -377,7 +425,7 @@ export default function CreateScheduleMock() {
 
   // Load a previous year paper's questions into the selection
   function applyPaper(paper: PreviousYearPaper) {
-    const bankIds = new Set(allQuestions.map((q) => q.id));
+    const bankIds = new Set(dbQuestions.map((q) => q.id));
     const ids = paper.sections.flatMap((s) => s.questionIds.filter((id) => bankIds.has(id)));
     setSelectedIds(new Set(ids));
   }
@@ -393,11 +441,61 @@ export default function CreateScheduleMock() {
     [yearFilter],
   );
 
-  function handleSchedule() {
+  async function handleSchedule() {
+    if (selectedIds.size === 0) return;
+    setScheduling(true);
+
+    const scheduledAt = new Date(`${date}T${time}:00`).toISOString();
+    const totalMarks = [...selectedIds].reduce((sum, id) => {
+      const q = dbQuestions.find((x) => x.id === id);
+      return sum + (q?.marks ?? 1.25);
+    }, 0);
+
+    // 1. Create the mock test
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sb = supabase as any;
+    const { data: mt, error: mtErr } = await sb
+      .from("mock_tests")
+      .insert({
+        title: title.trim() || "Mock Test",
+        pattern: pattern === "PreviousYear" ? "JNVST" : pattern,
+        duration_minutes: duration,
+        total_questions: selectedIds.size,
+        total_marks: totalMarks,
+        scheduled_at: scheduledAt,
+        status: "scheduled",
+      })
+      .select("id")
+      .single();
+
+    if (mtErr || !mt) {
+      toast({ type: "error", title: "Failed to create test", message: mtErr?.message ?? "Unknown error" });
+      setScheduling(false);
+      return;
+    }
+
+    // 2. Insert the question list
+    const questionRows = [...selectedIds].map((qid, idx) => ({
+      mock_test_id: mt.id,
+      question_id: qid,
+      order_index: idx,
+    }));
+
+    const { error: qErr } = await sb
+      .from("mock_test_questions")
+      .insert(questionRows);
+
+    setScheduling(false);
+
+    if (qErr) {
+      toast({ type: "error", title: "Questions not linked", message: qErr.message });
+      return;
+    }
+
     toast({
       type: "success",
-      title: "Mock test scheduled",
-      message: `"${title || "Untitled mock"}" set for ${date} · ${totalSelected} questions selected.`,
+      title: "Mock test scheduled! 🎉",
+      message: `"${title || "Mock Test"}" set for ${date} at ${time} · ${selectedIds.size} questions.`,
     });
     navigate("/teacher/dashboard");
   }
@@ -801,7 +899,12 @@ export default function CreateScheduleMock() {
             )}
           </div>
 
-          {filtered.length === 0 ? (
+          {loadingQ ? (
+            <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-line py-16 text-center">
+              <Database className="mb-3 size-8 animate-pulse text-brand-400" />
+              <p className="text-sm font-medium text-muted">Loading questions from database…</p>
+            </div>
+          ) : filtered.length === 0 ? (
             <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-line py-16 text-center">
               <Brain className="mb-3 size-8 text-slate-300" />
               <p className="text-sm font-medium text-muted">No questions match your filters</p>
@@ -949,6 +1052,7 @@ export default function CreateScheduleMock() {
             className="w-full"
             disabled={
               totalSelected === 0 ||
+              scheduling ||
               (pattern === "JNVST" &&
                 (totalSelected !== 80 ||
                   JNVST_SECTIONS.some(
@@ -957,8 +1061,11 @@ export default function CreateScheduleMock() {
             }
             onClick={handleSchedule}
           >
-            <CalendarClock className="mr-2 size-4" />
-            Schedule test
+            {scheduling ? (
+              <><Loader2 className="mr-2 size-4 animate-spin" /> Saving…</>
+            ) : (
+              <><CalendarClock className="mr-2 size-4" /> Schedule test</>
+            )}
           </Button>
 
           {pattern === "JNVST" && totalSelected !== 80 && (

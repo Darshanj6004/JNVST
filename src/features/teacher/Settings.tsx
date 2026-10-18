@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { GaugeCircle, Save, School, Timer } from "lucide-react";
-import { Avatar, Button, Card, CardBody, CardHeader, Checkbox, Field, Input, Select, useToast } from "@/ui";
+import { Avatar, Button, Card, CardBody, CardHeader, Field, Input, Select, useToast } from "@/ui";
 import { PageHeader } from "@/components/PageHeader";
-import { teacher } from "@/data/users";
+import { useAuth } from "@/lib/auth";
+import type { Teacher } from "@/types";
 
 function Toggle({ label, description, defaultOn = false }: { label: string; description: string; defaultOn?: boolean }) {
   const [on, setOn] = useState(defaultOn);
@@ -26,6 +27,9 @@ function Toggle({ label, description, defaultOn = false }: { label: string; desc
 
 export default function Settings() {
   const { toast } = useToast();
+  const { user } = useAuth();
+  const teacher = user as Teacher | null;
+
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <PageHeader title="Settings" description="Manage your profile, exam thresholds and preferences." />
@@ -34,20 +38,21 @@ export default function Settings() {
         <CardHeader title="Profile" />
         <CardBody className="space-y-4">
           <div className="flex items-center gap-4 rounded-xl bg-canvas p-4">
-            <Avatar name={teacher.name} color={teacher.avatarColor} size={52} />
+            <Avatar name={teacher?.name ?? "Teacher"} color={teacher?.avatarColor ?? "#2563EB"} size={52} />
             <div>
-              <p className="text-sm font-semibold text-ink">{teacher.name}</p>
-              <p className="text-xs text-muted">{teacher.title}</p>
+              <p className="text-sm font-semibold text-ink">{teacher?.name ?? "—"}</p>
+              <p className="text-xs text-muted">{teacher?.title ?? "Class Teacher"}</p>
             </div>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Full name">
-              <Input defaultValue={teacher.name} />
+              <Input defaultValue={teacher?.name ?? ""} disabled />
             </Field>
             <Field label="Username">
-              <Input defaultValue={teacher.username} />
+              <Input defaultValue={teacher?.username ?? ""} disabled />
             </Field>
           </div>
+          <p className="text-[12px] text-muted">Profile changes must be made by the administrator in Supabase.</p>
         </CardBody>
       </Card>
 
@@ -98,7 +103,10 @@ export default function Settings() {
       </Card>
 
       <div className="flex justify-end">
-        <Button onClick={() => toast({ type: "success", title: "Settings saved", message: "Your preferences have been updated." })} leftIcon={<Save className="size-4" />}>
+        <Button
+          onClick={() => toast({ type: "success", title: "Settings saved", message: "Your preferences have been updated." })}
+          leftIcon={<Save className="size-4" />}
+        >
           Save changes
         </Button>
       </div>
