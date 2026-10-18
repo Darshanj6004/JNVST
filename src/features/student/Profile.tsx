@@ -1,16 +1,21 @@
-import { CalendarDays, GraduationCap, Hash, Info, Mail, ShieldCheck, User } from "lucide-react";
+import { CalendarDays, GraduationCap, Hash, Info, ShieldCheck, User } from "lucide-react";
 import { Avatar, Badge, Button, Card, CardBody, CardHeader, Field, Input } from "@/ui";
 import { PageHeader } from "@/components/PageHeader";
-import { currentStudent } from "@/data/users";
+import { useAuth } from "@/lib/auth";
 import { formatDate } from "@/lib/format";
+import type { Student } from "@/types";
 
 export default function Profile() {
-  const s = currentStudent;
+  const { user } = useAuth();
+  const s = user as Student | null;
+
+  if (!s) return null;
+
   const rows = [
     { icon: User, label: "Full name", value: s.name },
-    { icon: Hash, label: "Roll number", value: s.rollNo },
-    { icon: GraduationCap, label: "Class", value: s.className },
-    { icon: Mail, label: "Username", value: `@${s.username}` },
+    { icon: Hash, label: "Roll number", value: s.rollNo || "—" },
+    { icon: GraduationCap, label: "Class", value: s.className || "—" },
+    { icon: User, label: "Username", value: `@${s.username}` },
     { icon: CalendarDays, label: "Joined", value: formatDate(s.joinedAt) },
   ];
 
@@ -24,16 +29,16 @@ export default function Profile() {
             <Avatar name={s.name} color={s.avatarColor} size={80} />
             <h2 className="mt-4 text-lg font-semibold text-ink">{s.name}</h2>
             <p className="text-sm text-muted">@{s.username}</p>
-            <Badge tone="success" dot className="mt-3">
-              Active
+            <Badge tone={s.status === "active" ? "success" : "danger"} dot className="mt-3">
+              {s.status === "active" ? "Active" : "Inactive"}
             </Badge>
             <div className="mt-6 grid w-full grid-cols-2 gap-3">
               <div className="rounded-xl bg-canvas p-3">
-                <p className="text-lg font-semibold text-ink tabular">12</p>
-                <p className="text-xs text-muted">Tests</p>
+                <p className="text-lg font-semibold text-ink tabular">—</p>
+                <p className="text-xs text-muted">Tests taken</p>
               </div>
               <div className="rounded-xl bg-canvas p-3">
-                <p className="text-lg font-semibold text-ink tabular">#4</p>
+                <p className="text-lg font-semibold text-ink tabular">—</p>
                 <p className="text-xs text-muted">Class rank</p>
               </div>
             </div>
@@ -60,8 +65,8 @@ export default function Profile() {
         <CardHeader title="Password" subtitle="Passwords are managed by your teacher" />
         <CardBody>
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Current password">
-              <Input type="password" value="navodaya" disabled />
+            <Field label="Password">
+              <Input type="password" value="••••••••••" disabled />
             </Field>
             <div className="flex items-end">
               <Button variant="secondary" disabled leftIcon={<ShieldCheck className="size-4" />}>
@@ -71,7 +76,7 @@ export default function Profile() {
           </div>
           <div className="mt-4 flex items-start gap-2 rounded-xl bg-brand-50/60 p-3.5 text-[13px] text-brand-700">
             <Info className="mt-0.5 size-4 shrink-0" />
-            To reset your password, please contact your class teacher. Students can't change credentials directly.
+            To reset your password, please contact your class teacher. Students cannot change credentials directly.
           </div>
         </CardBody>
       </Card>

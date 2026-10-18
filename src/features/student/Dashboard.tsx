@@ -11,10 +11,11 @@ import {
 import { Badge, Button, Card, CardBody, CardHeader, ProgressBar } from "@/ui";
 import { PageHeader } from "@/components/PageHeader";
 import { ProgressRing, ScoreTrend } from "@/charts";
-import { currentStudent } from "@/data/users";
 import { attempts, scoreHistory, topicPerformance } from "@/data/analytics";
 import { mockTests } from "@/data/mockTests";
 import { formatDateTime, relativeTime } from "@/lib/format";
+import { useAuth } from "@/lib/auth";
+import type { Student } from "@/types";
 
 const bandMeta = {
   strong: { tone: "success" as const, label: "Strong" },
@@ -23,6 +24,10 @@ const bandMeta = {
 };
 
 export default function StudentDashboard() {
+  const { user } = useAuth();
+  const student = user as Student | null;
+  const firstName = student?.name?.split(" ")[0] ?? "Student";
+
   const strong = topicPerformance.filter((t) => t.band === "strong");
   const weak = topicPerformance.filter((t) => t.band === "weak");
   const upcoming = mockTests.filter((m) => m.status === "upcoming" || m.status === "live");
@@ -31,7 +36,7 @@ export default function StudentDashboard() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title={`Namaste, ${currentStudent.name.split(" ")[0]} 👋`}
+        title={`Namaste, ${firstName} 👋`}
         description="Here's how your JNVST preparation is shaping up today."
         actions={
           <Link to="/student/practice">
