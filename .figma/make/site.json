@@ -1,0 +1,10 @@
+{
+  "description": "A comprehensive platform for JNVST exam prep offering students practice tests, progress tracking, and teachers tools for managing exams and analytics.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}
