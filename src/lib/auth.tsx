@@ -127,12 +127,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     try {
       let email = username.trim();
+
       if (!email.includes("@")) {
-        if (role === "teacher" && (email === "teacher_sunita" || email === "sunita")) {
-          email = "teacher.sunita@gmail.com";
+        if (role === "teacher") {
+          // Look up teacher's real email from profiles → auth.users
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("id")
+            .eq("username", email)
+            .eq("role", "teacher")
+            .maybeSingle();
+
+          if (profile) {
+            // We can't get the email from profiles, but teacher was created via UI
+            // so the email is the one they entered. For now support direct email too.
+            // Fallback: teacher must enter their actual email if username not recognized
+            setError("Please enter your full email address (e.g. teacher.sunita@gmail.com).");
+            setLoading(false);
+            return;
+          }
+          // Already is an email
         } else {
-          // Look up email or construct standard format
-          email = `${email.toLowerCase().replace(/\s+/g, "_")}@jnvst.edu`;
+          // Student: look up by username or roll_number → get their @navodayaprep.edu email
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("username, roll_number")
+            .eq("role", "student")
+            .or(`username.eq.${email},roll_number.eq.${email}`)
+            .maybeSingle();
+
+          if (!profile) {
+            setError("Student not found. Check your roll number or username.");
+            setLoading(false);
+            return;
+          }
+          const p = profile as { username: string; roll_number: string | null };
+          email = `${p.username}@navodayaprep.edu`;
         }
       }
 

@@ -1,23 +1,71 @@
-import { useState } from "react";
-import { Link, Navigate, useNavigate, useParams } from "react-router";
-import { ArrowLeft, KeyRound, RefreshCw, ShieldCheck } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router";
+import { ArrowLeft, KeyRound, Loader2, RefreshCw, ShieldCheck } from "lucide-react";
 import { Avatar, Button, Card, CardBody, Field, Input, useToast } from "@/ui";
 import { PageHeader } from "@/components/PageHeader";
-import { getStudentById } from "@/data/users";
+import { supabase } from "@/lib/supabaseClient";
+
+type StudentRow = {
+  id: string;
+  full_name: string;
+  username: string;
+  roll_number: string | null;
+  avatar_color: string;
+};
 
 export default function ResetPassword() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const student = id ? getStudentById(id) : undefined;
-  const [password, setPassword] = useState("navodaya");
+  const [student, setStudent] = useState<StudentRow | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [password, setPassword] = useState("Navodaya@123");
 
-  if (!student) return <Navigate to="/teacher/students" replace />;
+  useEffect(() => {
+    if (!id) return;
+    supabase
+      .from("profiles")
+      .select("id, full_name, username, roll_number, avatar_color")
+      .eq("id", id)
+      .eq("role", "student")
+      .single()
+      .then(({ data, error }) => {
+        if (error || !data) {
+          navigate("/teacher/students");
+        } else {
+          setStudent(data as StudentRow);
+        }
+        setLoading(false);
+      });
+  }, [id, navigate]);
 
-  const reset = () => {
-    toast({ type: "success", title: "Password reset", message: `New password set for ${student.name}.` });
-    navigate("/teacher/students");
+  const reset = async () => {
+    if (!student || !password.trim()) return;
+    setSaving(true);
+    const { error } = await supabase.rpc("reset_student_password", {
+      p_student_id: student.id,
+      p_new_password: password.trim(),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+    if (error) {
+      toast({ type: "error", title: "Reset failed", message: error.message });
+    } else {
+      toast({ type: "success", title: "Password reset", message: `New password set for ${student.full_name}.` });
+      navigate("/teacher/students");
+    }
+    setSaving(false);
   };
+
+  if (loading) {
+    return (
+      <div className="flex min-h-64 items-center justify-center">
+        <Loader2 className="size-6 animate-spin text-brand-500" />
+      </div>
+    );
+  }
+
+  if (!student) return null;
 
   return (
     <div className="mx-auto max-w-lg space-y-6">
@@ -30,21 +78,21 @@ export default function ResetPassword() {
       <Card>
         <CardBody className="space-y-5">
           <div className="flex items-center gap-4 rounded-xl bg-canvas p-4">
-            <Avatar name={student.name} color={student.avatarColor} size={48} />
+            <Avatar name={student.full_name} color={student.avatar_color} size={48} />
             <div>
-              <p className="text-sm font-semibold text-ink">{student.name}</p>
-              <p className="text-xs text-muted">@{student.username} · Roll {student.rollNo}</p>
+              <p className="text-sm font-semibold text-ink">{student.full_name}</p>
+              <p className="text-xs text-muted">@{student.username} · Roll {student.roll_number}</p>
             </div>
           </div>
 
-          <Field label="New default password">
+          <Field label="New password">
             <div className="flex gap-2">
               <Input
                 leftIcon={<KeyRound className="size-4" />}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
-              <Button variant="secondary" onClick={() => setPassword("navodaya")} leftIcon={<RefreshCw className="size-4" />}>
+              <Button variant="secondary" onClick={() => setPassword("Navodaya@123")} leftIcon={<RefreshCw className="size-4" />}>
                 Reset
               </Button>
             </div>
@@ -59,7 +107,7 @@ export default function ResetPassword() {
             <Link to="/teacher/students">
               <Button variant="secondary">Cancel</Button>
             </Link>
-            <Button onClick={reset} leftIcon={<KeyRound className="size-4" />}>
+            <Button onClick={reset} loading={saving} leftIcon={<KeyRound className="size-4" />}>
               Reset password
             </Button>
           </div>

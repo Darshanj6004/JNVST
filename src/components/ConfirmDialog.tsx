@@ -9,6 +9,7 @@ export function ConfirmDialog({
   description,
   confirmLabel = "Confirm",
   tone = "primary",
+  loading = false,
 }: {
   open: boolean;
   onClose: () => void;
@@ -17,6 +18,7 @@ export function ConfirmDialog({
   description: ReactNode;
   confirmLabel?: string;
   tone?: "primary" | "danger";
+  loading?: boolean;
 }) {
   return (
     <Modal
@@ -26,15 +28,13 @@ export function ConfirmDialog({
       size="sm"
       footer={
         <>
-          <Button variant="secondary" onClick={onClose}>
+          <Button variant="secondary" onClick={onClose} disabled={loading}>
             Cancel
           </Button>
           <Button
             variant={tone === "danger" ? "danger" : "primary"}
-            onClick={() => {
-              onConfirm();
-              onClose();
-            }}
+            loading={loading}
+            onClick={onConfirm}
           >
             {confirmLabel}
           </Button>
