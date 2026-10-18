@@ -1,22 +1,17 @@
 -- ================================================================
--- SEED: Create Teacher Account
+-- SEED: Create Teacher Account (Clean Supabase version)
 -- Run this in Supabase Dashboard → SQL Editor → New Query
--- AFTER running schema.sql
 -- ================================================================
--- Credentials created:
---   Email/Username: teacher_sunita@jnvst.local / teacher_sunita
---   Password:       Navodaya@2026
--- ================================================================
+
+create extension if not exists "pgcrypto";
 
 do $$
 declare
-  new_user_id uuid := uuid_generate_v4();
+  new_user_id uuid := gen_random_uuid();
 begin
-  -- Check if teacher user already exists in auth.users
   if not exists (select 1 from auth.users where email = 'teacher_sunita@jnvst.local') then
     insert into auth.users (
       id,
-      instance_id,
       email,
       encrypted_password,
       email_confirmed_at,
@@ -28,12 +23,11 @@ begin
       aud
     ) values (
       new_user_id,
-      '00000000-0000-00-00-00-00-00-000000000000',
       'teacher_sunita@jnvst.local',
       crypt('Navodaya@2026', gen_salt('bf')),
       now(),
-      '{"provider":"email","providers":["email"]}',
-      '{"role":"teacher","full_name":"Sunita Deshmukh","username":"teacher_sunita","avatar_color":"#1d4ed8"}',
+      '{"provider":"email","providers":["email"]}'::jsonb,
+      '{"role":"teacher","full_name":"Sunita Deshmukh","username":"teacher_sunita","avatar_color":"#1d4ed8"}'::jsonb,
       now(),
       now(),
       'authenticated',
@@ -43,7 +37,6 @@ begin
     select id into new_user_id from auth.users where email = 'teacher_sunita@jnvst.local';
   end if;
 
-  -- Ensure profile exists
   insert into public.profiles (
     id,
     role,

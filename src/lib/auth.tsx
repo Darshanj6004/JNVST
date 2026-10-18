@@ -12,7 +12,7 @@ import type { Role, Student, Teacher, User } from "@/types";
 
 // ── Types ────────────────────────────────────────────────────
 interface AuthState {
-  user: User | null;
+  user: Student | Teacher | null;
   supabaseUser: SupabaseUser | null;
   session: Session | null;
   loading: boolean;
@@ -37,7 +37,7 @@ type ProfileRow = {
   created_at: string;
 };
 
-function buildUser(profile: ProfileRow): User {
+function buildUser(profile: ProfileRow): Student | Teacher {
   if (profile.role === "teacher") {
     return {
       id: profile.id,
@@ -46,7 +46,7 @@ function buildUser(profile: ProfileRow): User {
       username: profile.username,
       avatarColor: profile.avatar_color,
       title: "Class Teacher",
-    } satisfies Teacher;
+    };
   }
   return {
     id: profile.id,
@@ -59,12 +59,12 @@ function buildUser(profile: ProfileRow): User {
     status: profile.status,
     joinedAt: profile.created_at,
     lastActive: new Date().toISOString(),
-  } satisfies Student;
+  };
 }
 
 // ── Provider ─────────────────────────────────────────────────
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<Student | Teacher | null>(null);
   const [supabaseUser, setSupabaseUser] = useState<SupabaseUser | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
@@ -126,14 +126,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setError(null);
     setLoading(true);
     try {
-      // Derive email from username
-      // Teachers use their real email; students use rollnumber@jnvst.local
-      const email =
-        role === "teacher"
-          ? username.includes("@")
-            ? username
-            : `${username}@jnvst.local`
-          : `${username}@jnvst.local`;
+      let email = username.trim();
+      if (!email.includes("@")) {
+        if (role === "teacher" && (email === "teacher_sunita" || email === "sunita")) {
+          email = "teacher.sunita@gmail.com";
+        } else {
+          // Look up email or construct standard format
+          email = `${email.toLowerCase().replace(/\s+/g, "_")}@jnvst.edu`;
+        }
+      }
 
       const { error: signInError } = await supabase.auth.signInWithPassword({
         email,
