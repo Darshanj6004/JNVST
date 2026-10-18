@@ -1,8 +1,7 @@
 {
-  "name": "jnvst-scholarship-platform",
+  "name": "figma-make-app",
   "private": true,
   "version": "1.0.0",
-  "author": "Darshan Jadhav <darshanjadhav0203@gmail.com>",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -11,6 +10,7 @@
     "format": "oxfmt"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.118.0",
     "lucide-react": "^1.43.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

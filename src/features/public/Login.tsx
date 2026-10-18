@@ -6,11 +6,6 @@ import { useAuth } from "@/lib/auth";
 import { Button, Field, Input } from "@/ui";
 import { cn } from "@/lib/cn";
 
-const demo: Record<Role, { username: string; password: string }> = {
-  student: { username: "aarav_patil_04", password: "navodaya" },
-  teacher: { username: "darshanjadhav0203", password: "navodaya" },
-};
-
 export default function Login() {
   const [role, setRole] = useState<Role>("student");
   const [username, setUsername] = useState("");
@@ -20,7 +15,7 @@ export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     if (!username.trim() || !password.trim()) {
@@ -28,16 +23,14 @@ export default function Login() {
       return;
     }
     setLoading(true);
-    setTimeout(() => {
-      login(role);
+    try {
+      await login({ username: username.trim(), password, role });
       navigate(role === "teacher" ? "/teacher/dashboard" : "/student/dashboard");
-    }, 550);
-  };
-
-  const fillDemo = () => {
-    setUsername(demo[role].username);
-    setPassword(demo[role].password);
-    setError("");
+    } catch {
+      setError("Invalid username or password. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -54,10 +47,10 @@ export default function Login() {
           </Link>
           <div>
             <blockquote className="text-2xl font-medium leading-snug tracking-tight">
-              “Every mock test we ran digitally saved hours of paper checking — and the children could finally see
-              their own progress.”
+              "Every mock test we ran digitally saved hours of paper checking — and the children could finally see
+              their own progress."
             </blockquote>
-            <p className="mt-5 text-sm text-brand-100">Darshan Jadhav · Platform Administrator, Z.P.P. School Kasare</p>
+            <p className="mt-5 text-sm text-brand-100">Sunita Deshmukh · Class Teacher, Z.P.P. School Kasare</p>
           </div>
           <div className="flex gap-8">
             {[
@@ -107,13 +100,14 @@ export default function Login() {
           </div>
 
           <form onSubmit={submit} className="mt-6 space-y-4">
-            <Field label="Username">
+            <Field label={role === "teacher" ? "Username or Email" : "Roll Number / Username"}>
               <Input
                 leftIcon={<User className="size-4" />}
-                placeholder={role === "teacher" ? "teacher_username" : "student_username"}
+                placeholder={role === "teacher" ? "e.g. teacher_sunita" : "e.g. 04 or aarav_patil"}
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 autoComplete="username"
+                disabled={loading}
               />
             </Field>
             <Field label="Password">
@@ -124,6 +118,7 @@ export default function Login() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 autoComplete="current-password"
+                disabled={loading}
               />
             </Field>
 
@@ -138,13 +133,6 @@ export default function Login() {
               Sign in
             </Button>
           </form>
-
-          <button
-            onClick={fillDemo}
-            className="mt-4 w-full rounded-lg border border-dashed border-line py-2.5 text-[13px] font-medium text-muted transition-colors hover:border-brand-300 hover:text-brand-600"
-          >
-            Use demo {role} credentials
-          </button>
 
           <p className="mt-6 text-center text-[13px] text-muted">
             {role === "student"

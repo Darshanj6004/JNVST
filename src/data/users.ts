@@ -3,9 +3,9 @@ import type { Student, Teacher } from "@/types";
 export const teacher: Teacher = {
   id: "t1",
   role: "teacher",
-  name: "Darshan Jadhav",
-  username: "darshanjadhav0203",
-  title: "Administrator & Teacher · JNVST Platform",
+  name: "Sunita Deshmukh",
+  username: "teacher_sunita",
+  title: "Class Teacher · 4th Standard",
   avatarColor: "#1d4ed8",
 };
 
