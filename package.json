@@ -1,7 +1,8 @@
 {
-  "name": "figma-make-app",
+  "name": "jnvst-scholarship-platform",
   "private": true,
   "version": "1.0.0",
+  "author": "Darshan Jadhav <darshanjadhav0203@gmail.com>",
   "type": "module",
   "scripts": {
     "dev": "vite",

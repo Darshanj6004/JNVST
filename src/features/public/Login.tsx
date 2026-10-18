@@ -8,7 +8,7 @@ import { cn } from "@/lib/cn";
 
 const demo: Record<Role, { username: string; password: string }> = {
   student: { username: "aarav_patil_04", password: "navodaya" },
-  teacher: { username: "teacher_sunita", password: "navodaya" },
+  teacher: { username: "darshanjadhav0203", password: "navodaya" },
 };
 
 export default function Login() {
@@ -57,7 +57,7 @@ export default function Login() {
               “Every mock test we ran digitally saved hours of paper checking — and the children could finally see
               their own progress.”
             </blockquote>
-            <p className="mt-5 text-sm text-brand-100">Sunita Deshmukh · Class Teacher, Z.P.P. School Kasare</p>
+            <p className="mt-5 text-sm text-brand-100">Darshan Jadhav · Platform Administrator, Z.P.P. School Kasare</p>
           </div>
           <div className="flex gap-8">
             {[
