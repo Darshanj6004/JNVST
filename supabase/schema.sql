@@ -1,6 +1,7 @@
 -- ============================================================
 -- JNVST Digital Scholarship Platform — Supabase Database Schema
 -- Run this entire file in: Supabase Dashboard → SQL Editor → New Query
+-- (This script is safe to run multiple times)
 -- ============================================================
 
 -- 1. ENABLE EXTENSIONS
@@ -28,6 +29,7 @@ create or replace function public.handle_updated_at()
 returns trigger language plpgsql as $$
 begin new.updated_at = now(); return new; end; $$;
 
+drop trigger if exists profiles_updated_at on public.profiles;
 create trigger profiles_updated_at before update on public.profiles
   for each row execute procedure public.handle_updated_at();
 
@@ -70,26 +72,35 @@ begin
   select id into ar_id from public.subjects where code = 'arithmetic';
   select id into la_id from public.subjects where code = 'language';
 
-  insert into public.topics (subject_id, name) values
-    (ma_id, 'Analogy'),
-    (ma_id, 'Classification (Odd One Out)'),
-    (ma_id, 'Series Completion'),
-    (ma_id, 'Pattern Recognition'),
-    (ma_id, 'Visual Reasoning'),
-    (ma_id, 'Coding-Decoding'),
-    (ma_id, 'Mirror & Water Images'),
-    (ma_id, 'Embedded Figures'),
-    (ar_id, 'Number System'),
-    (ar_id, 'Addition, Subtraction, Multiplication & Division'),
-    (ar_id, 'Fractions & Decimals'),
-    (ar_id, 'Geometry & Shapes'),
-    (ar_id, 'Measurement'),
-    (ar_id, 'Data Interpretation'),
-    (la_id, 'Reading Comprehension'),
-    (la_id, 'Grammar & Vocabulary'),
-    (la_id, 'Fill in the Blanks'),
-    (la_id, 'Sentence Correction')
-  on conflict do nothing;
+  if ma_id is not null and not exists (select 1 from public.topics where subject_id = ma_id) then
+    insert into public.topics (subject_id, name) values
+      (ma_id, 'Analogy'),
+      (ma_id, 'Classification (Odd One Out)'),
+      (ma_id, 'Series Completion'),
+      (ma_id, 'Pattern Recognition'),
+      (ma_id, 'Visual Reasoning'),
+      (ma_id, 'Coding-Decoding'),
+      (ma_id, 'Mirror & Water Images'),
+      (ma_id, 'Embedded Figures');
+  end if;
+
+  if ar_id is not null and not exists (select 1 from public.topics where subject_id = ar_id) then
+    insert into public.topics (subject_id, name) values
+      (ar_id, 'Number System'),
+      (ar_id, 'Addition, Subtraction, Multiplication & Division'),
+      (ar_id, 'Fractions & Decimals'),
+      (ar_id, 'Geometry & Shapes'),
+      (ar_id, 'Measurement'),
+      (ar_id, 'Data Interpretation');
+  end if;
+
+  if la_id is not null and not exists (select 1 from public.topics where subject_id = la_id) then
+    insert into public.topics (subject_id, name) values
+      (la_id, 'Reading Comprehension'),
+      (la_id, 'Grammar & Vocabulary'),
+      (la_id, 'Fill in the Blanks'),
+      (la_id, 'Sentence Correction');
+  end if;
 end $$;
 
 -- ============================================================
@@ -115,6 +126,7 @@ create table if not exists public.questions (
   updated_at      timestamptz not null default now()
 );
 
+drop trigger if exists questions_updated_at on public.questions;
 create trigger questions_updated_at before update on public.questions
   for each row execute procedure public.handle_updated_at();
 
@@ -136,6 +148,7 @@ create table if not exists public.mock_tests (
   updated_at       timestamptz not null default now()
 );
 
+drop trigger if exists mock_tests_updated_at on public.mock_tests;
 create trigger mock_tests_updated_at before update on public.mock_tests
   for each row execute procedure public.handle_updated_at();
 
@@ -162,7 +175,6 @@ create table if not exists public.exam_attempts (
   total_correct   int not null default 0,
   status          text not null default 'in_progress' check (status in ('in_progress','submitted','timed_out')),
   created_at      timestamptz not null default now(),
-  -- One active attempt per student per test
   unique (student_id, mock_test_id)
 );
 
@@ -179,6 +191,7 @@ create table if not exists public.exam_answers (
   unique (attempt_id, question_id)
 );
 
+drop trigger if exists exam_answers_updated_at on public.exam_answers;
 create trigger exam_answers_updated_at before update on public.exam_answers
   for each row execute procedure public.handle_updated_at();
 
@@ -240,62 +253,91 @@ returns text language sql stable security definer as $$
 $$;
 
 -- PROFILES
+drop policy if exists "Users can view their own profile" on public.profiles;
 create policy "Users can view their own profile" on public.profiles
   for select using (id = auth.uid() or public.my_role() = 'teacher');
+
+drop policy if exists "Teachers can insert profiles" on public.profiles;
 create policy "Teachers can insert profiles" on public.profiles
   for insert with check (public.my_role() = 'teacher');
+
+drop policy if exists "Teachers can update profiles" on public.profiles;
 create policy "Teachers can update profiles" on public.profiles
   for update using (public.my_role() = 'teacher' or id = auth.uid());
 
--- SUBJECTS & TOPICS (everyone can read)
+-- SUBJECTS & TOPICS
+drop policy if exists "Anyone authenticated can read subjects" on public.subjects;
 create policy "Anyone authenticated can read subjects" on public.subjects
   for select using (auth.uid() is not null);
+
+drop policy if exists "Anyone authenticated can read topics" on public.topics;
 create policy "Anyone authenticated can read topics" on public.topics
   for select using (auth.uid() is not null);
 
--- QUESTIONS (all can read; only teachers write)
+-- QUESTIONS
+drop policy if exists "Anyone authenticated can read questions" on public.questions;
 create policy "Anyone authenticated can read questions" on public.questions
   for select using (auth.uid() is not null);
+
+drop policy if exists "Teachers can manage questions" on public.questions;
 create policy "Teachers can manage questions" on public.questions
   for all using (public.my_role() = 'teacher');
 
--- MOCK TESTS (all can read; only teachers write)
+-- MOCK TESTS
+drop policy if exists "Anyone authenticated can read mock tests" on public.mock_tests;
 create policy "Anyone authenticated can read mock tests" on public.mock_tests
   for select using (auth.uid() is not null);
+
+drop policy if exists "Teachers can manage mock tests" on public.mock_tests;
 create policy "Teachers can manage mock tests" on public.mock_tests
   for all using (public.my_role() = 'teacher');
 
 -- MOCK TEST QUESTIONS
+drop policy if exists "Anyone authenticated can read mock_test_questions" on public.mock_test_questions;
 create policy "Anyone authenticated can read mock_test_questions" on public.mock_test_questions
   for select using (auth.uid() is not null);
+
+drop policy if exists "Teachers can manage mock_test_questions" on public.mock_test_questions;
 create policy "Teachers can manage mock_test_questions" on public.mock_test_questions
   for all using (public.my_role() = 'teacher');
 
--- EXAM ATTEMPTS (students see own; teachers see all)
+-- EXAM ATTEMPTS
+drop policy if exists "Students see own attempts" on public.exam_attempts;
 create policy "Students see own attempts" on public.exam_attempts
   for select using (student_id = auth.uid() or public.my_role() = 'teacher');
+
+drop policy if exists "Students can insert own attempt" on public.exam_attempts;
 create policy "Students can insert own attempt" on public.exam_attempts
   for insert with check (student_id = auth.uid());
+
+drop policy if exists "Students can update own attempt" on public.exam_attempts;
 create policy "Students can update own attempt" on public.exam_attempts
   for update using (student_id = auth.uid() or public.my_role() = 'teacher');
 
 -- EXAM ANSWERS
+drop policy if exists "Students see own answers" on public.exam_answers;
 create policy "Students see own answers" on public.exam_answers
   for select using (
     exists (select 1 from public.exam_attempts ea where ea.id = attempt_id and (ea.student_id = auth.uid() or public.my_role() = 'teacher'))
   );
+
+drop policy if exists "Students manage own answers" on public.exam_answers;
 create policy "Students manage own answers" on public.exam_answers
   for all using (
     exists (select 1 from public.exam_attempts ea where ea.id = attempt_id and ea.student_id = auth.uid())
   );
 
 -- PRACTICE SETS
+drop policy if exists "Anyone authenticated can read practice sets" on public.practice_sets;
 create policy "Anyone authenticated can read practice sets" on public.practice_sets
   for select using (auth.uid() is not null);
+
+drop policy if exists "Teachers can manage practice sets" on public.practice_sets;
 create policy "Teachers can manage practice sets" on public.practice_sets
   for all using (public.my_role() = 'teacher');
 
 -- NOTIFICATIONS
+drop policy if exists "Users see notifications targeted to them" on public.notifications;
 create policy "Users see notifications targeted to them" on public.notifications
   for select using (
     auth.uid() is not null and (
@@ -304,10 +346,13 @@ create policy "Users see notifications targeted to them" on public.notifications
       or target_student_id = auth.uid()
     )
   );
+
+drop policy if exists "Teachers can manage notifications" on public.notifications;
 create policy "Teachers can manage notifications" on public.notifications
   for all using (public.my_role() = 'teacher');
 
 -- NOTIFICATION READS
+drop policy if exists "Users manage own reads" on public.notification_reads;
 create policy "Users manage own reads" on public.notification_reads
   for all using (user_id = auth.uid());
 
@@ -326,7 +371,11 @@ begin
     new.raw_user_meta_data->>'roll_number',
     new.raw_user_meta_data->>'class_name',
     coalesce(new.raw_user_meta_data->>'avatar_color', '#2563EB')
-  );
+  )
+  on conflict (id) do update set
+    role = excluded.role,
+    full_name = excluded.full_name,
+    username = excluded.username;
   return new;
 end;
 $$;
@@ -337,5 +386,5 @@ create trigger on_auth_user_created
   for each row execute procedure public.handle_new_user();
 
 -- ============================================================
--- Done! All tables, RLS policies, and triggers created.
+-- Done! All tables, RLS policies, and triggers are ready.
 -- ============================================================
