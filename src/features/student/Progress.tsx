@@ -1,32 +1,155 @@
+import { useCallback, useEffect, useState } from "react";
 import { Badge, Card, CardBody, CardHeader, ProgressBar, Table, TH, THead, TR, TD } from "@/ui";
 import { PageHeader } from "@/components/PageHeader";
 import { AccuracyBars, BandDonut, ScoreTrend } from "@/charts";
-import { scoreHistory, subjectAccuracy, topicPerformance } from "@/data/analytics";
+import { supabase } from "@/lib/supabaseClient";
+import { useAuth } from "@/lib/auth";
+import { Loader2 } from "lucide-react";
 
 const bandTone = { strong: "success", average: "warning", weak: "danger" } as const;
 
+const SUBJECT_LABELS: Record<string, string> = {
+  mental_ability: "Mental Ability",
+  arithmetic: "Arithmetic",
+  language: "Language",
+};
+
+type TopicRow = {
+  topic_name: string;
+  subject_code: string;
+  correct: number;
+  total: number;
+  accuracy: number;
+  band: "strong" | "average" | "weak";
+};
+
+type TrendPoint = { label: string; score: number; average: number };
+
 export default function Progress() {
+  const { user } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [testsTaken, setTestsTaken] = useState(0);
+  const [overallAcc, setOverallAcc] = useState<number | null>(null);
+  const [bestScore, setBestScore] = useState<number | null>(null);
+  const [topics, setTopics] = useState<TopicRow[]>([]);
+  const [trend, setTrend] = useState<TrendPoint[]>([]);
+  const [subjectAccuracy, setSubjectAccuracy] = useState<{ label: string; value: number }[]>([]);
+
+  const load = useCallback(async () => {
+    if (!user?.id) return;
+    setLoading(true);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sb = supabase as any;
+
+    // Submitted attempts for this student
+    const { data: attempts } = await sb
+      .from("exam_attempts")
+      .select("id, score, mock_tests(title, total_marks, scheduled_at)")
+      .eq("student_id", user.id)
+      .eq("status", "submitted")
+      .order("submitted_at", { ascending: true });
+
+    const att = (attempts ?? []) as {
+      id: string;
+      score: number;
+      mock_tests: { title: string; total_marks: number; scheduled_at: string };
+    }[];
+
+    setTestsTaken(att.length);
+
+    if (att.length > 0) {
+      const pcts = att.map((a) => (a.score / (a.mock_tests?.total_marks || 100)) * 100);
+      setOverallAcc(Math.round(pcts.reduce((s, v) => s + v, 0) / pcts.length));
+      setBestScore(Math.round(Math.max(...pcts)));
+
+      // Score trend
+      setTrend(
+        att.map((a) => ({
+          label: (a.mock_tests?.title ?? "").slice(0, 10),
+          score: Math.round((a.score / (a.mock_tests?.total_marks || 100)) * 100),
+          average: Math.round((a.score / (a.mock_tests?.total_marks || 100)) * 100),
+        }))
+      );
+    }
+
+    // Get this student's exam answers with question details
+    const { data: answers } = await sb
+      .from("exam_answers")
+      .select("is_correct, questions(subject_code, topic_name)")
+      .in("attempt_id", att.map((a) => a.id));
+
+    const ans = (answers ?? []) as {
+      is_correct: boolean | null;
+      questions: { subject_code: string; topic_name: string };
+    }[];
+
+    // Subject accuracy
+    const subMap: Record<string, { correct: number; total: number }> = {};
+    const topicMap: Record<string, { correct: number; total: number; subject: string }> = {};
+
+    for (const a of ans) {
+      const code = a.questions?.subject_code ?? "other";
+      const topic = a.questions?.topic_name ?? "Unknown";
+      if (!subMap[code]) subMap[code] = { correct: 0, total: 0 };
+      subMap[code].total++;
+      if (a.is_correct) subMap[code].correct++;
+
+      const key = `${code}:${topic}`;
+      if (!topicMap[key]) topicMap[key] = { correct: 0, total: 0, subject: code };
+      topicMap[key].total++;
+      if (a.is_correct) topicMap[key].correct++;
+    }
+
+    setSubjectAccuracy(
+      Object.entries(subMap).map(([code, v]) => ({
+        label: (SUBJECT_LABELS[code] ?? code).split(" ")[0],
+        value: v.total > 0 ? Math.round((v.correct / v.total) * 100) : 0,
+      }))
+    );
+
+    const topicRows: TopicRow[] = Object.entries(topicMap).map(([key, v]) => {
+      const acc = v.total > 0 ? Math.round((v.correct / v.total) * 100) : 0;
+      return {
+        topic_name: key.split(":")[1],
+        subject_code: v.subject,
+        correct: v.correct,
+        total: v.total,
+        accuracy: acc,
+        band: (acc >= 75 ? "strong" : acc >= 50 ? "average" : "weak") as "strong" | "average" | "weak",
+      };
+    }).sort((a, b) => a.accuracy - b.accuracy);
+    setTopics(topicRows);
+
+    setLoading(false);
+  }, [user?.id]);
+
+  useEffect(() => { load(); }, [load]);
+
   const bands = {
-    strong: topicPerformance.filter((t) => t.band === "strong").length,
-    average: topicPerformance.filter((t) => t.band === "average").length,
-    weak: topicPerformance.filter((t) => t.band === "weak").length,
+    strong: topics.filter((t) => t.band === "strong").length,
+    average: topics.filter((t) => t.band === "average").length,
+    weak: topics.filter((t) => t.band === "weak").length,
   };
+
   const donut = [
     { name: "Strong", value: bands.strong, key: "strong" },
     { name: "Average", value: bands.average, key: "average" },
     { name: "Weak", value: bands.weak, key: "weak" },
   ];
 
+  const statsEmpty = testsTaken === 0 && !loading;
+
   return (
     <div className="space-y-6">
       <PageHeader title="Progress analytics" description="Track your improvement and spot topics to focus on." />
 
+      {/* Top stats */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
-          ["Overall accuracy", "72%"],
-          ["Tests taken", "12"],
-          ["Best score", "85%"],
-          ["Practice streak", "5 days"],
+          ["Overall accuracy", loading ? "…" : overallAcc !== null ? `${overallAcc}%` : "—"],
+          ["Tests taken", loading ? "…" : String(testsTaken)],
+          ["Best score", loading ? "…" : bestScore !== null ? `${bestScore}%` : "—"],
+          ["Topics tracked", loading ? "…" : String(topics.length)],
         ].map(([l, v]) => (
           <Card key={l}>
             <CardBody>
@@ -37,89 +160,104 @@ export default function Progress() {
         ))}
       </div>
 
+      {/* Charts */}
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">
-          <CardHeader title="Score trend" subtitle="Mock score vs class average over time" />
+          <CardHeader title="Score trend" subtitle="Your score per test (% of total marks)" />
           <CardBody>
-            <ScoreTrend data={scoreHistory} height={260} />
+            {loading ? (
+              <div className="flex h-64 items-center justify-center">
+                <Loader2 className="size-6 animate-spin text-brand-400" />
+              </div>
+            ) : trend.length > 0 ? (
+              <ScoreTrend data={trend} height={260} />
+            ) : (
+              <div className="flex h-64 items-center justify-center text-sm text-muted">
+                Trend will appear after you submit your first mock test
+              </div>
+            )}
           </CardBody>
         </Card>
         <Card>
           <CardHeader title="Topic bands" subtitle="Distribution across all topics" />
           <CardBody className="flex flex-col items-center">
-            <div className="relative">
-              <BandDonut data={donut} />
-            </div>
-            <div className="mt-2 flex w-full flex-col gap-2">
-              {donut.map((d) => (
-                <div key={d.key} className="flex items-center justify-between text-[13px]">
-                  <span className="flex items-center gap-2 text-ink">
-                    <span
-                      className="size-3 rounded"
-                      style={{ backgroundColor: d.key === "strong" ? "#16a34a" : d.key === "average" ? "#d97706" : "#dc2626" }}
-                    />
-                    {d.name}
-                  </span>
-                  <span className="font-medium text-muted tabular">{d.value} topics</span>
+            {topics.length > 0 ? (
+              <>
+                <BandDonut data={donut} />
+                <div className="mt-4 grid w-full grid-cols-3 gap-2 text-center">
+                  {donut.map((d) => (
+                    <div key={d.key}>
+                      <p className={`text-lg font-semibold tabular ${
+                        d.key === "strong" ? "text-success" : d.key === "average" ? "text-warning" : "text-danger"
+                      }`}>{d.value}</p>
+                      <p className="text-[11px] text-muted capitalize">{d.key}</p>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              </>
+            ) : (
+              <div className="flex h-40 items-center justify-center text-sm text-muted">
+                No data yet
+              </div>
+            )}
           </CardBody>
         </Card>
       </div>
 
-      <Card>
-        <CardHeader title="Accuracy by subject" />
-        <CardBody className="grid gap-6 lg:grid-cols-[1.4fr_1fr] lg:items-center">
-          <AccuracyBars data={subjectAccuracy.map((s) => ({ label: s.subject, value: s.accuracy }))} />
-          <div className="space-y-4">
-            {subjectAccuracy.map((s) => (
-              <div key={s.subject}>
-                <div className="mb-1 flex items-center justify-between text-[13px]">
-                  <span className="text-ink">{s.subject}</span>
-                  <span className="text-muted tabular">
-                    {s.accuracy}% · {s.attempted} attempted
-                  </span>
-                </div>
-                <ProgressBar value={s.accuracy} />
-              </div>
-            ))}
-          </div>
-        </CardBody>
-      </Card>
+      {/* Subject accuracy */}
+      {subjectAccuracy.length > 0 && (
+        <Card>
+          <CardHeader title="Accuracy by subject" subtitle="Based on your submitted answers" />
+          <CardBody>
+            <AccuracyBars data={subjectAccuracy} height={200} />
+          </CardBody>
+        </Card>
+      )}
 
-      <Card>
-        <CardHeader title="Topic-wise performance" subtitle="Strong, average and weak topics by accuracy" />
-        <Table>
-          <THead>
-            <tr>
-              <TH>Topic</TH>
-              <TH>Subject</TH>
-              <TH>Attempted</TH>
-              <TH>Accuracy</TH>
-              <TH>Band</TH>
-            </tr>
-          </THead>
-          <tbody>
-            {topicPerformance.map((t) => (
-              <TR key={t.topicId}>
-                <TD className="font-medium">{t.topic}</TD>
-                <TD className="text-muted">{t.subject}</TD>
-                <TD className="tabular">{t.attempted}</TD>
-                <TD>
-                  <div className="flex items-center gap-2">
-                    <ProgressBar value={t.accuracy} tone={bandTone[t.band]} className="w-24" />
-                    <span className="tabular text-muted">{t.accuracy}%</span>
-                  </div>
-                </TD>
-                <TD>
-                  <Badge tone={bandTone[t.band]}>{t.band[0].toUpperCase() + t.band.slice(1)}</Badge>
-                </TD>
-              </TR>
-            ))}
-          </tbody>
-        </Table>
-      </Card>
+      {/* Topic table */}
+      {statsEmpty ? (
+        <Card>
+          <CardBody className="flex flex-col items-center justify-center gap-3 py-16 text-center">
+            <p className="text-sm font-medium text-muted">No progress data yet</p>
+            <p className="text-xs text-slate-400">Take a mock test to start tracking your performance.</p>
+          </CardBody>
+        </Card>
+      ) : (
+        <Card>
+          <CardHeader title="Topic-wise performance" subtitle="Your accuracy per topic" />
+          <Table>
+            <THead>
+              <tr>
+                <TH>Topic</TH>
+                <TH>Subject</TH>
+                <TH>Answers</TH>
+                <TH>Accuracy</TH>
+                <TH>Band</TH>
+              </tr>
+            </THead>
+            <tbody>
+              {topics.map((t) => (
+                <TR key={`${t.subject_code}-${t.topic_name}`}>
+                  <TD className="font-medium">{t.topic_name}</TD>
+                  <TD className="text-muted">{SUBJECT_LABELS[t.subject_code] ?? t.subject_code}</TD>
+                  <TD className="tabular text-muted">{t.total}</TD>
+                  <TD>
+                    <div className="flex items-center gap-2">
+                      <ProgressBar value={t.accuracy} tone={bandTone[t.band]} className="w-24" />
+                      <span className="tabular text-muted">{t.accuracy}%</span>
+                    </div>
+                  </TD>
+                  <TD>
+                    <Badge tone={bandTone[t.band]}>
+                      {t.band[0].toUpperCase() + t.band.slice(1)}
+                    </Badge>
+                  </TD>
+                </TR>
+              ))}
+            </tbody>
+          </Table>
+        </Card>
+      )}
     </div>
   );
 }
