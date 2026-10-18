@@ -32,6 +32,7 @@ import Reports from "@/features/teacher/Reports";
 import WeakStudents from "@/features/teacher/WeakStudents";
 import MeritList from "@/features/teacher/MeritList";
 import Settings from "@/features/teacher/Settings";
+import MockTestManagement from "@/features/teacher/MockTestManagement";
 
 export const router = createBrowserRouter([
   { path: "/", Component: Welcome },
@@ -77,6 +78,7 @@ export const router = createBrowserRouter([
       { path: "questions/:id/edit", Component: AddEditQuestion },
       { path: "questions/import", Component: ExcelImport },
       { path: "practice-sets/new", Component: CreatePracticeSet },
+      { path: "mock-tests", Component: MockTestManagement },
       { path: "mock-tests/new", Component: CreateScheduleMock },
       { path: "reports", Component: Reports },
       { path: "weak-students", Component: WeakStudents },

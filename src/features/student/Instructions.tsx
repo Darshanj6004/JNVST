@@ -1,24 +1,59 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router";
-import { AlertTriangle, ArrowLeft, Ban, Bookmark, CheckCircle2, Clock, ShieldCheck } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Ban, Bookmark, CheckCircle2, Clock, Loader2, ShieldCheck } from "lucide-react";
 import { Button, Card, CardBody, Checkbox } from "@/ui";
 import { PageHeader } from "@/components/PageHeader";
-import { getMockTest } from "@/data/mockTests";
+import { supabase } from "@/lib/supabaseClient";
+
+type DBTest = {
+  id: string;
+  title: string;
+  pattern: string;
+  duration_minutes: number;
+  total_questions: number;
+  total_marks: number;
+  status: string;
+};
 
 export default function Instructions() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const test = id ? getMockTest(id) : undefined;
+  const [test, setTest] = useState<DBTest | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
   const [agreed, setAgreed] = useState(false);
 
-  if (!test) return <Navigate to="/student/mock-tests" replace />;
+  useEffect(() => {
+    if (!id) return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase as any)
+      .from("mock_tests")
+      .select("id, title, pattern, duration_minutes, total_questions, total_marks, status")
+      .eq("id", id)
+      .single()
+      .then(({ data, error }: { data: DBTest | null; error: unknown }) => {
+        if (error || !data) setNotFound(true);
+        else setTest(data);
+        setLoading(false);
+      });
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <Loader2 className="size-6 animate-spin text-brand-400" />
+      </div>
+    );
+  }
+
+  if (notFound || !test) return <Navigate to="/student/mock-tests" replace />;
 
   const rules = [
-    { icon: Clock, text: `The test is timed for ${test.durationMin} minutes and auto-submits when time runs out.` },
+    { icon: Clock, text: `The test is timed for ${test.duration_minutes} minutes and auto-submits when time runs out.` },
     { icon: Ban, text: "There is no negative marking — attempt every question." },
     { icon: Bookmark, text: "You can mark questions for review and revisit them using the question palette." },
     { icon: ShieldCheck, text: "This is a single-attempt test. Your answers are saved as you go." },
-    { icon: CheckCircle2, text: "Each question carries 1.25 marks. Choose the single best option." },
+    { icon: CheckCircle2, text: "Each question carries marks as set by your teacher. Choose the single best option." },
   ];
 
   return (
@@ -27,13 +62,13 @@ export default function Instructions() {
         <ArrowLeft className="size-4" /> Back to mock tests
       </Link>
 
-      <PageHeader title={test.title} description={`${test.pattern} pattern · ${test.totalMarks} marks`} />
+      <PageHeader title={test.title} description={`${test.pattern} pattern · ${test.total_marks} marks`} />
 
       <div className="grid grid-cols-3 gap-3">
         {[
-          ["Questions", test.totalQuestions],
-          ["Total marks", test.totalMarks],
-          ["Duration", `${test.durationMin}m`],
+          ["Questions", test.total_questions],
+          ["Total marks", test.total_marks],
+          ["Duration", `${test.duration_minutes}m`],
         ].map(([l, v]) => (
           <Card key={l as string}>
             <CardBody className="text-center">

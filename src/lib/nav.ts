@@ -52,6 +52,7 @@ export const teacherNav: NavSection[] = [
       { label: "Dashboard", to: "/teacher/dashboard", icon: LayoutDashboard },
       { label: "Students", to: "/teacher/students", icon: Users },
       { label: "Question Bank", to: "/teacher/questions", icon: Database },
+      { label: "Mock Tests", to: "/teacher/mock-tests", icon: ClipboardList },
       { label: "Schedule Mock", to: "/teacher/mock-tests/new", icon: CalendarPlus },
     ],
   },
