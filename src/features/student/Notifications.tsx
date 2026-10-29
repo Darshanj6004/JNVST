@@ -109,38 +109,50 @@ export default function Notifications() {
       />
 
       {loading ? (
-        <div className="flex flex-col items-center gap-3 py-16 text-muted">
-          <Bell className="size-7 animate-pulse text-brand-300" />
-          <p className="text-sm">Loading notifications…</p>
+        <div className="flex flex-col items-center justify-center gap-3 py-20 text-muted">
+          <Bell className="size-8 animate-pulse text-brand-400" />
+          <p className="text-sm font-medium">Checking for updates…</p>
         </div>
       ) : items.length === 0 ? (
-        <Card>
+        <Card className="rounded-2xl border border-line bg-white shadow-xs">
           <EmptyState
-            icon={<Bell className="size-6" />}
-            title="No notifications"
-            description="New updates will appear here."
+            icon={<Bell className="size-8 text-slate-300" />}
+            title="All caught up!"
+            description="You don't have any unread notifications. Announcements and test reminders will appear right here."
           />
         </Card>
       ) : (
-        <div className="space-y-2.5">
+        <div className="space-y-3">
           {items.map((n) => {
             const m = meta[n.type] ?? meta.info;
             return (
-              <Card key={n.id} className={cn(!n.read && "ring-1 ring-brand-100")}>
-                <CardBody
-                  className="flex cursor-pointer items-start gap-3.5 py-4"
-                  onClick={() => markRead(n.id)}
-                >
-                  <span className={cn("flex size-10 shrink-0 items-center justify-center rounded-xl", m.cls)}>
+              <Card
+                key={n.id}
+                className={cn(
+                  "rounded-2xl border transition-all duration-150 cursor-pointer",
+                  !n.read
+                    ? "border-brand-200 bg-gradient-to-r from-brand-50/40 to-white shadow-xs"
+                    : "border-line bg-white hover:border-slate-300",
+                )}
+                onClick={() => markRead(n.id)}
+              >
+                <CardBody className="flex items-start gap-4 p-4 sm:p-5">
+                  <span className={cn("flex size-11 shrink-0 items-center justify-center rounded-2xl shadow-xs", m.cls)}>
                     <m.icon className="size-5" />
                   </span>
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-semibold text-ink">{n.title}</p>
-                      {!n.read && <span className="size-2 shrink-0 rounded-full bg-brand-500" />}
+                    <div className="flex items-center justify-between gap-2">
+                      <p className={cn("text-sm text-ink", !n.read ? "font-bold" : "font-semibold")}>
+                        {n.title}
+                      </p>
+                      {!n.read && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-brand-500 px-2 py-0.5 text-[10px] font-bold text-white shadow-xs shrink-0">
+                          New
+                        </span>
+                      )}
                     </div>
-                    <p className="mt-0.5 text-[13px] leading-relaxed text-slate-600">{n.body}</p>
-                    <p className="mt-1.5 text-xs text-muted">{relativeTime(n.created_at)}</p>
+                    <p className="mt-1 text-xs leading-relaxed text-slate-600 font-normal">{n.body}</p>
+                    <p className="mt-2 text-[11px] font-medium text-slate-400">{relativeTime(n.created_at)}</p>
                   </div>
                 </CardBody>
               </Card>

@@ -28,12 +28,16 @@ export function Sidebar({
             <span className="text-[11px] font-medium text-muted">{portalLabel}</span>
           </span>
         </NavLink>
-        <button onClick={onClose} className="lg:hidden rounded-lg p-1.5 text-muted hover:bg-slate-100">
+        <button
+          onClick={onClose}
+          aria-label="Close menu"
+          className="lg:hidden flex size-9 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-ink transition-colors"
+        >
           <X className="size-5" />
         </button>
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-3 py-4">
+      <nav className="flex-1 overflow-y-auto px-3.5 py-4">
         {nav.map((section, si) => (
           <div key={si} className={cn(si > 0 && "mt-6")}>
             {section.heading && (
@@ -41,7 +45,7 @@ export function Sidebar({
                 {section.heading}
               </p>
             )}
-            <div className="flex flex-col gap-0.5">
+            <div className="flex flex-col gap-1">
               {section.items.map((item) => (
                 <NavLink
                   key={item.to}
@@ -50,17 +54,24 @@ export function Sidebar({
                   onClick={onNavigate}
                   className={({ isActive }) =>
                     cn(
-                      "group flex items-center gap-3 rounded-[10px] px-3 py-2 text-sm font-medium transition-colors",
-                      isActive ? "bg-brand-50 text-brand-700" : "text-slate-600 hover:bg-slate-100 hover:text-ink",
+                      "group flex min-h-[42px] items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium transition-all select-none",
+                      isActive
+                        ? "bg-brand-50 text-brand-700 font-semibold ring-1 ring-brand-200/70 shadow-[var(--shadow-xs)]"
+                        : "text-slate-600 hover:bg-slate-100/80 hover:text-ink active:bg-slate-200/70",
                     )
                   }
                 >
                   {({ isActive }) => (
                     <>
-                      <item.icon className={cn("size-[18px]", isActive ? "text-brand-600" : "text-slate-400")} />
-                      <span className="flex-1">{item.label}</span>
+                      <item.icon
+                        className={cn(
+                          "size-[19px] shrink-0 transition-transform group-hover:scale-105",
+                          isActive ? "text-brand-600" : "text-slate-400 group-hover:text-slate-600",
+                        )}
+                      />
+                      <span className="flex-1 truncate">{item.label}</span>
                       {item.badge ? (
-                        <span className="rounded-full bg-brand-500 px-1.5 py-0.5 text-[11px] font-semibold text-white tabular">
+                        <span className="rounded-full bg-brand-500 px-2 py-0.5 text-[11px] font-bold text-white tabular shadow-xs">
                           {item.badge}
                         </span>
                       ) : null}
@@ -74,9 +85,13 @@ export function Sidebar({
       </nav>
 
       <div className="border-t border-line p-4">
-        <div className="rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 p-4 text-white">
-          <p className="text-sm font-semibold">JNVST 2027</p>
-          <p className="mt-0.5 text-xs text-brand-100">Class 4 · Scholarship track</p>
+        <div className="rounded-2xl bg-gradient-to-br from-brand-600 to-brand-800 p-4 text-white shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold uppercase tracking-wide text-brand-200">Exam Target</span>
+            <span className="rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-medium text-white">Class 4</span>
+          </div>
+          <p className="mt-1 text-sm font-bold text-white">JNVST 2027</p>
+          <p className="mt-0.5 text-xs text-brand-100">Scholarship & Navodaya Prep</p>
         </div>
       </div>
     </div>

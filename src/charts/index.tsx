@@ -38,42 +38,59 @@ const axisProps = {
 export function ScoreTrend({
   data,
   height = 240,
+  scoreLabel = "Your score",
+  averageLabel = "Class average",
 }: {
   data: { label: string; score: number; average: number }[];
   height?: number;
+  scoreLabel?: string;
+  averageLabel?: string;
 }) {
+  if (!data || data.length === 0) {
+    return (
+      <div className="flex items-center justify-center text-sm text-muted" style={{ height }}>
+        No score trend data available yet
+      </div>
+    );
+  }
+
   return (
     <ResponsiveContainer width="100%" height={height}>
       <AreaChart data={data} margin={{ top: 8, right: 12, left: -12, bottom: 0 }}>
         <defs>
           <linearGradient id="scoreFill" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={brand} stopOpacity={0.16} />
-            <stop offset="100%" stopColor={brand} stopOpacity={0} />
+            <stop offset="0%" stopColor={brand} stopOpacity={0.2} />
+            <stop offset="100%" stopColor={brand} stopOpacity={0.02} />
           </linearGradient>
         </defs>
-        <CartesianGrid vertical={false} stroke={line} />
+        <CartesianGrid vertical={false} stroke={line} strokeDasharray="3 3" />
         <XAxis dataKey="label" {...axisProps} />
-        <YAxis {...axisProps} domain={[0, 100]} />
-        <Tooltip contentStyle={tooltipStyle} cursor={{ stroke: line }} />
-        <Area
-          type="monotone"
-          dataKey="average"
-          name="Class average"
-          stroke={muted}
-          strokeDasharray="4 4"
-          strokeWidth={2}
-          fill="none"
-          dot={false}
+        <YAxis {...axisProps} domain={[0, 100]} unit="%" />
+        <Tooltip
+          contentStyle={tooltipStyle}
+          cursor={{ stroke: "#cbd5e1", strokeWidth: 1 }}
         />
+        {averageLabel && averageLabel.trim() !== "" ? (
+          <Area
+            type="monotone"
+            dataKey="average"
+            name={averageLabel}
+            stroke={muted}
+            strokeDasharray="4 4"
+            strokeWidth={1.75}
+            fill="none"
+            dot={false}
+          />
+        ) : null}
         <Area
           type="monotone"
           dataKey="score"
-          name="Your score"
+          name={scoreLabel}
           stroke={brand}
           strokeWidth={2.5}
           fill="url(#scoreFill)"
-          dot={{ r: 3, fill: brand, strokeWidth: 0 }}
-          activeDot={{ r: 5, fill: brand, stroke: "#fff", strokeWidth: 2 }}
+          dot={{ r: 4, fill: brand, stroke: "#fff", strokeWidth: 2 }}
+          activeDot={{ r: 6, fill: brand, stroke: "#fff", strokeWidth: 2.5 }}
         />
       </AreaChart>
     </ResponsiveContainer>
@@ -90,13 +107,21 @@ export function AccuracyBars({
   height?: number;
   color?: string;
 }) {
+  if (!data || data.length === 0) {
+    return (
+      <div className="flex items-center justify-center text-sm text-muted" style={{ height }}>
+        No accuracy data available yet
+      </div>
+    );
+  }
+
   return (
     <ResponsiveContainer width="100%" height={height}>
       <ReBarChart data={data} margin={{ top: 8, right: 12, left: -12, bottom: 0 }} barCategoryGap={22}>
-        <CartesianGrid vertical={false} stroke={line} />
+        <CartesianGrid vertical={false} stroke={line} strokeDasharray="3 3" />
         <XAxis dataKey="label" {...axisProps} />
         <YAxis {...axisProps} domain={[0, 100]} unit="%" />
-        <Tooltip contentStyle={tooltipStyle} cursor={{ fill: "#f1f5f9" }} />
+        <Tooltip contentStyle={tooltipStyle} cursor={{ fill: "#f8fafc" }} />
         <Bar dataKey="value" name="Accuracy" fill={color} radius={[6, 6, 0, 0]} maxBarSize={54} />
       </ReBarChart>
     </ResponsiveContainer>
@@ -117,6 +142,15 @@ export function BandDonut({
   data: { name: string; value: number; key: string }[];
   height?: number;
 }) {
+  const total = (data ?? []).reduce((acc, d) => acc + (d.value || 0), 0);
+  if (!data || data.length === 0 || total === 0) {
+    return (
+      <div className="flex items-center justify-center text-sm text-muted" style={{ height }}>
+        No topic band data available yet
+      </div>
+    );
+  }
+
   return (
     <ResponsiveContainer width="100%" height={height}>
       <PieChart>

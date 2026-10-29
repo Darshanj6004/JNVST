@@ -260,22 +260,29 @@ export default function LiveExam() {
   return (
     <div className="flex h-full flex-col bg-canvas">
       {/* Exam header */}
-      <header className="flex h-16 shrink-0 items-center justify-between gap-3 border-b border-line bg-white px-4 sm:px-6">
-        <div className="flex items-center gap-3">
-          <span className="flex size-9 items-center justify-center rounded-xl bg-brand-500 text-white">
-            <Flag className="size-4" />
+      <header className="flex h-16 shrink-0 items-center justify-between gap-3 border-b border-line bg-white px-4 sm:px-6 shadow-xs z-10">
+        <div className="flex items-center gap-3 min-w-0">
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-brand-500 text-white shadow-xs">
+            <Flag className="size-5" />
           </span>
-          <div className="leading-tight">
-            <p className="text-sm font-semibold text-ink">{test.title}</p>
-            <p className="text-xs text-muted">
-              {test.pattern} · {test.total_marks} marks · {paper.length} questions
+          <div className="leading-tight min-w-0">
+            <p className="text-sm font-bold text-ink truncate">{test.title}</p>
+            <p className="text-xs text-muted truncate">
+              {test.pattern} Pattern · {test.total_marks} Marks · {paper.length} Questions
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          <div className="hidden md:flex items-center gap-1.5 text-xs text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-lg font-medium">
+            <Check className="size-3.5 stroke-[2.5]" /> Auto-saving answers
+          </div>
           <TimerBadge remaining={remaining} total={durationSec} />
-          <Button onClick={() => setConfirmOpen(true)} className="hidden sm:inline-flex">
-            Submit test
+          <Button
+            onClick={() => setConfirmOpen(true)}
+            size="md"
+            className="hidden sm:inline-flex bg-emerald-600 hover:bg-emerald-700 font-bold shadow-xs"
+          >
+            Submit Test
           </Button>
         </div>
       </header>
@@ -285,54 +292,60 @@ export default function LiveExam() {
         <main className="min-w-0 flex-1 overflow-y-auto">
           <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6">
             <div className="mb-4 flex items-center justify-between">
-              <span className="text-sm font-medium text-muted">
-                Question <span className="text-ink tabular">{idx + 1}</span> of {paper.length}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="rounded-lg bg-brand-50 text-brand-700 px-2.5 py-1 text-xs font-bold tabular">
+                  Question {idx + 1} of {paper.length}
+                </span>
+                <span className="text-xs text-muted">+{q.marks} marks</span>
+              </div>
               <button
                 onClick={() => setPaletteOpen((o) => !o)}
-                className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-sm font-medium text-muted hover:bg-slate-100 lg:hidden"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-line bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-xs hover:bg-slate-50 lg:hidden"
               >
-                <PanelRightClose className="size-4" /> Palette
+                <PanelRightClose className="size-4 text-brand-600" /> Question Palette
               </button>
             </div>
 
-            <Card>
-              <CardBody className="space-y-5">
+            <Card className="rounded-2xl border border-line bg-white shadow-xs">
+              <CardBody className="p-6 space-y-6">
                 {/* Question text */}
-                <p className="text-sm font-medium leading-relaxed text-ink">{q.question_text}</p>
+                <p className="text-[16px] font-semibold leading-relaxed text-ink">{q.question_text}</p>
                 {q.image_url && (
-                  <img
-                    src={q.image_url}
-                    alt="Question figure"
-                    className="w-full max-h-52 rounded-xl border border-line object-contain bg-slate-50"
-                  />
+                  <div className="overflow-hidden rounded-2xl border border-line bg-slate-50 p-2">
+                    <img
+                      src={q.image_url}
+                      alt="Question figure"
+                      className="w-full max-h-56 rounded-xl border border-line object-contain bg-white"
+                    />
+                  </div>
                 )}
 
                 {/* Options */}
-                <div className="space-y-2.5">
+                <div className="space-y-3">
                   {options.map((opt, i) => {
                     const letter = opts[i];
                     const selected = answers[idx] === letter;
                     return (
                       <button
                         key={i}
+                        type="button"
                         onClick={() => handleAnswer(idx, letter)}
                         className={cn(
-                          "flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left text-sm transition-all",
+                          "flex min-h-[52px] w-full items-center gap-3.5 rounded-xl border px-4 py-3 text-left text-sm transition-all select-none cursor-pointer",
                           selected
-                            ? "border-brand-400 bg-brand-50/60 font-medium text-brand-700 shadow-sm"
-                            : "border-line bg-white text-ink hover:border-brand-300 hover:bg-brand-50/20",
+                            ? "border-brand-500 bg-brand-50/70 font-semibold text-brand-900 ring-2 ring-brand-500/20 shadow-xs"
+                            : "border-line bg-white text-slate-700 hover:border-brand-400 hover:bg-brand-50/30 hover:shadow-xs",
                         )}
                       >
                         <span
                           className={cn(
-                            "flex size-7 shrink-0 items-center justify-center rounded-lg text-xs font-bold",
-                            selected ? "bg-brand-500 text-white" : "bg-slate-100 text-slate-500",
+                            "flex size-8 shrink-0 items-center justify-center rounded-xl text-xs font-bold transition-colors",
+                            selected ? "bg-brand-500 text-white" : "bg-slate-100 text-slate-600",
                           )}
                         >
-                          {selected ? <Check className="size-3.5" /> : letter}
+                          {selected ? <Check className="size-4 stroke-[3]" /> : letter}
                         </span>
-                        {opt}
+                        <span className="text-[15px] leading-snug flex-1">{opt}</span>
                       </button>
                     );
                   })}
@@ -344,12 +357,18 @@ export default function LiveExam() {
               <Button
                 variant={marked.has(idx) ? "primary" : "secondary"}
                 onClick={toggleMark}
+                className={marked.has(idx) ? "bg-amber-500 hover:bg-amber-600 border-amber-500" : ""}
                 leftIcon={<Bookmark className={cn("size-4", marked.has(idx) && "fill-current")} />}
               >
-                {marked.has(idx) ? "Marked for review" : "Mark for review"}
+                {marked.has(idx) ? "Marked for Review" : "Mark for Review"}
               </Button>
               <div className="flex items-center gap-2">
-                <Button variant="secondary" disabled={idx === 0} onClick={() => setIdx(idx - 1)} leftIcon={<ArrowLeft className="size-4" />}>
+                <Button
+                  variant="secondary"
+                  disabled={idx === 0}
+                  onClick={() => setIdx(idx - 1)}
+                  leftIcon={<ArrowLeft className="size-4" />}
+                >
                   Previous
                 </Button>
                 <Button

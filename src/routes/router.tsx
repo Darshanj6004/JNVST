@@ -37,7 +37,7 @@ import MockTestManagement from "@/features/teacher/MockTestManagement";
 export const router = createBrowserRouter([
   { path: "/", Component: Welcome },
   { path: "/login", Component: Login },
-  { path: "/design-system", Component: ShowcasePage },
+  ...(import.meta.env.DEV ? [{ path: "/design-system", Component: ShowcasePage }] : []),
 
   {
     path: "/student/exam/:id",

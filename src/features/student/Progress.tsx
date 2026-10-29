@@ -1,10 +1,22 @@
 import { useCallback, useEffect, useState } from "react";
-import { Badge, Card, CardBody, CardHeader, ProgressBar, Table, TH, THead, TR, TD } from "@/ui";
+import { Link } from "react-router";
+import {
+  Award,
+  BookOpen,
+  CheckCircle2,
+  Dumbbell,
+  FileText,
+  LineChart,
+  Loader2,
+  Sparkles,
+  Target,
+  Trophy,
+} from "lucide-react";
+import { Badge, Button, Card, CardBody, CardHeader, EmptyState, ProgressBar, Table, TH, THead, TR, TD } from "@/ui";
 import { PageHeader } from "@/components/PageHeader";
 import { AccuracyBars, BandDonut, ScoreTrend } from "@/charts";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/auth";
-import { Loader2 } from "lucide-react";
 
 const bandTone = { strong: "success", average: "warning", weak: "danger" } as const;
 
@@ -62,13 +74,16 @@ export default function Progress() {
       setOverallAcc(Math.round(pcts.reduce((s, v) => s + v, 0) / pcts.length));
       setBestScore(Math.round(Math.max(...pcts)));
 
-      // Score trend
+      // Score trend without artificial class average duplicate
       setTrend(
-        att.map((a) => ({
-          label: (a.mock_tests?.title ?? "").slice(0, 10),
-          score: Math.round((a.score / (a.mock_tests?.total_marks || 100)) * 100),
-          average: Math.round((a.score / (a.mock_tests?.total_marks || 100)) * 100),
-        }))
+        att.map((a) => {
+          const scoreVal = Math.round((a.score / (a.mock_tests?.total_marks || 100)) * 100);
+          return {
+            label: (a.mock_tests?.title ?? "").slice(0, 12),
+            score: scoreVal,
+            average: scoreVal,
+          };
+        })
       );
     }
 
@@ -102,7 +117,7 @@ export default function Progress() {
 
     setSubjectAccuracy(
       Object.entries(subMap).map(([code, v]) => ({
-        label: (SUBJECT_LABELS[code] ?? code).split(" ")[0],
+        label: (SUBJECT_LABELS[code] ?? code),
         value: v.total > 0 ? Math.round((v.correct / v.total) * 100) : 0,
       }))
     );
@@ -141,20 +156,35 @@ export default function Progress() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Progress analytics" description="Track your improvement and spot topics to focus on." />
+      <PageHeader
+        title="My Progress Analytics"
+        description="Track your mock score growth and discover which topics to practice next."
+        actions={
+          <Link to="/student/practice">
+            <Button leftIcon={<Dumbbell className="size-4" />}>
+              Practice Topics
+            </Button>
+          </Link>
+        }
+      />
 
       {/* Top stats */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
-          ["Overall accuracy", loading ? "…" : overallAcc !== null ? `${overallAcc}%` : "—"],
-          ["Tests taken", loading ? "…" : String(testsTaken)],
-          ["Best score", loading ? "…" : bestScore !== null ? `${bestScore}%` : "—"],
-          ["Topics tracked", loading ? "…" : String(topics.length)],
-        ].map(([l, v]) => (
-          <Card key={l}>
-            <CardBody>
-              <p className="text-[13px] text-muted">{l}</p>
-              <p className="mt-2 text-2xl font-semibold text-ink tabular">{v}</p>
+          { label: "Overall Accuracy", value: loading ? "…" : overallAcc !== null ? `${overallAcc}%` : "—", icon: Target, accent: "bg-brand-50 text-brand-600" },
+          { label: "Tests Submitted", value: loading ? "…" : String(testsTaken), icon: FileText, accent: "bg-indigo-50 text-indigo-600" },
+          { label: "Best Score", value: loading ? "…" : bestScore !== null ? `${bestScore}%` : "—", icon: Trophy, accent: "bg-amber-50 text-amber-600" },
+          { label: "Topics Tracked", value: loading ? "…" : String(topics.length), icon: BookOpen, accent: "bg-emerald-50 text-emerald-600" },
+        ].map((s) => (
+          <Card key={s.label} className="rounded-2xl border border-line bg-white shadow-xs">
+            <CardBody className="p-5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-muted uppercase tracking-wider">{s.label}</span>
+                <span className={`flex size-8 items-center justify-center rounded-xl ${s.accent}`}>
+                  <s.icon className="size-4" />
+                </span>
+              </div>
+              <p className="mt-3 text-3xl font-extrabold text-ink tabular">{s.value}</p>
             </CardBody>
           </Card>
         ))}
@@ -162,42 +192,60 @@ export default function Progress() {
 
       {/* Charts */}
       <div className="grid gap-4 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <CardHeader title="Score trend" subtitle="Your score per test (% of total marks)" />
-          <CardBody>
+        <Card className="lg:col-span-2 rounded-2xl border border-line bg-white shadow-xs">
+          <CardHeader
+            title="Score Progress Trend"
+            subtitle="Percentage scored per submitted test in chronological order"
+          />
+          <CardBody className="p-5">
             {loading ? (
               <div className="flex h-64 items-center justify-center">
                 <Loader2 className="size-6 animate-spin text-brand-400" />
               </div>
             ) : trend.length > 0 ? (
-              <ScoreTrend data={trend} height={260} />
+              <div>
+                <ScoreTrend data={trend} height={260} averageLabel="" />
+                <p className="mt-3 text-center text-xs text-muted">
+                  Showing your test performance percentage over time.
+                </p>
+              </div>
             ) : (
-              <div className="flex h-64 items-center justify-center text-sm text-muted">
-                Trend will appear after you submit your first mock test
+              <div className="flex flex-col items-center justify-center h-64 text-center px-4">
+                <LineChart className="size-10 text-slate-300 mb-2" />
+                <p className="text-sm font-semibold text-ink">No test history yet</p>
+                <p className="text-xs text-muted max-w-xs mt-1">
+                  Your performance score curve will appear here after you submit your first mock test.
+                </p>
               </div>
             )}
           </CardBody>
         </Card>
-        <Card>
-          <CardHeader title="Topic bands" subtitle="Distribution across all topics" />
-          <CardBody className="flex flex-col items-center">
+
+        <Card className="rounded-2xl border border-line bg-white shadow-xs">
+          <CardHeader title="Topic Mastery" subtitle="Distribution across evaluated topics" />
+          <CardBody className="p-5 flex flex-col items-center">
             {topics.length > 0 ? (
               <>
                 <BandDonut data={donut} />
-                <div className="mt-4 grid w-full grid-cols-3 gap-2 text-center">
+                <div className="mt-4 grid w-full grid-cols-3 gap-2 text-center pt-3 border-t border-line">
                   {donut.map((d) => (
-                    <div key={d.key}>
-                      <p className={`text-lg font-semibold tabular ${
-                        d.key === "strong" ? "text-success" : d.key === "average" ? "text-warning" : "text-danger"
-                      }`}>{d.value}</p>
-                      <p className="text-[11px] text-muted capitalize">{d.key}</p>
+                    <div key={d.key} className="rounded-xl bg-slate-50 p-2">
+                      <p
+                        className={`text-lg font-bold tabular ${
+                          d.key === "strong" ? "text-success" : d.key === "average" ? "text-warning" : "text-danger"
+                        }`}
+                      >
+                        {d.value}
+                      </p>
+                      <p className="text-[11px] font-medium text-slate-500 capitalize">{d.name}</p>
                     </div>
                   ))}
                 </div>
               </>
             ) : (
-              <div className="flex h-40 items-center justify-center text-sm text-muted">
-                No data yet
+              <div className="flex flex-col items-center justify-center h-48 text-center text-xs text-muted">
+                <Sparkles className="size-8 text-slate-300 mb-2" />
+                No topic data yet
               </div>
             )}
           </CardBody>
@@ -206,51 +254,70 @@ export default function Progress() {
 
       {/* Subject accuracy */}
       {subjectAccuracy.length > 0 && (
-        <Card>
-          <CardHeader title="Accuracy by subject" subtitle="Based on your submitted answers" />
-          <CardBody>
-            <AccuracyBars data={subjectAccuracy} height={200} />
+        <Card className="rounded-2xl border border-line bg-white shadow-xs">
+          <CardHeader title="Accuracy by Subject" subtitle="Calculated from your verified answer submissions" />
+          <CardBody className="p-5">
+            <AccuracyBars data={subjectAccuracy} height={220} />
           </CardBody>
         </Card>
       )}
 
       {/* Topic table */}
       {statsEmpty ? (
-        <Card>
+        <Card className="rounded-2xl border border-line bg-white shadow-xs">
           <CardBody className="flex flex-col items-center justify-center gap-3 py-16 text-center">
-            <p className="text-sm font-medium text-muted">No progress data yet</p>
-            <p className="text-xs text-slate-400">Take a mock test to start tracking your performance.</p>
+            <div className="flex size-14 items-center justify-center rounded-2xl bg-brand-50 text-brand-600">
+              <Award className="size-7" />
+            </div>
+            <p className="text-base font-bold text-ink">No progress recorded yet</p>
+            <p className="text-xs text-muted max-w-sm">
+              Complete your first scheduled mock test to begin building your personalised analytics profile.
+            </p>
+            <Link to="/student/mock-tests" className="mt-2">
+              <Button size="sm">Go to Mock Tests</Button>
+            </Link>
           </CardBody>
         </Card>
       ) : (
-        <Card>
-          <CardHeader title="Topic-wise performance" subtitle="Your accuracy per topic" />
+        <Card className="rounded-2xl border border-line bg-white shadow-xs overflow-hidden">
+          <CardHeader
+            title="Topic-Wise Performance Breakdown"
+            subtitle="Topics ordered from lowest to highest accuracy for targeted practice"
+          />
           <Table>
             <THead>
               <tr>
-                <TH>Topic</TH>
+                <TH>Topic Name</TH>
                 <TH>Subject</TH>
-                <TH>Answers</TH>
+                <TH>Questions Answered</TH>
                 <TH>Accuracy</TH>
-                <TH>Band</TH>
+                <TH>Status</TH>
+                <TH className="text-right">Action</TH>
               </tr>
             </THead>
             <tbody>
               {topics.map((t) => (
                 <TR key={`${t.subject_code}-${t.topic_name}`}>
-                  <TD className="font-medium">{t.topic_name}</TD>
-                  <TD className="text-muted">{SUBJECT_LABELS[t.subject_code] ?? t.subject_code}</TD>
-                  <TD className="tabular text-muted">{t.total}</TD>
+                  <TD className="font-bold text-ink text-sm">{t.topic_name}</TD>
+                  <TD className="text-muted text-xs">{SUBJECT_LABELS[t.subject_code] ?? t.subject_code}</TD>
+                  <TD className="tabular text-muted text-xs">{t.correct} of {t.total} correct</TD>
                   <TD>
-                    <div className="flex items-center gap-2">
-                      <ProgressBar value={t.accuracy} tone={bandTone[t.band]} className="w-24" />
-                      <span className="tabular text-muted">{t.accuracy}%</span>
+                    <div className="flex items-center gap-2.5">
+                      <ProgressBar value={t.accuracy} tone={bandTone[t.band]} className="w-24 h-2" />
+                      <span className="tabular font-semibold text-xs text-slate-700">{t.accuracy}%</span>
                     </div>
                   </TD>
                   <TD>
                     <Badge tone={bandTone[t.band]}>
-                      {t.band[0].toUpperCase() + t.band.slice(1)}
+                      {t.band === "strong" ? "Strong" : t.band === "average" ? "Average" : "Needs Work"}
                     </Badge>
+                  </TD>
+                  <TD className="text-right">
+                    <Link to="/student/practice">
+                      <Button variant="ghost" size="sm" className="text-xs font-semibold text-brand-600 hover:text-brand-700">
+                        Practice &rarr;
+                      </Button>
+                    </Link>
                   </TD>
                 </TR>
               ))}
