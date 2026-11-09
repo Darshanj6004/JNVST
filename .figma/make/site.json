@@ -1,10 +1,15 @@
 {
-  "description": "A comprehensive platform for JNVST exam prep offering students practice tests, progress tracking, and teachers tools for managing exams and analytics.",
+  "description": "Z.P.P. School, Kasare — JNVST (Navodaya) entrance preparation: Marathi practice questions, mock tests and progress tracking for Class 5 students.",
   "robots": {
     "index": false
   },
   "accessibility": {
     "addBypassLinks": false,
     "ignoreReducedMotion": false
+  },
+  "title": "नवोदय प्रवेश तयारी | Navodaya Prep",
+  "language": "mr",
+  "icons": {
+    "icon": "/favicon.svg"
   }
 }
