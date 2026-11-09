@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router";
-import { KeyRound, Pencil, Plus, UserRoundX } from "lucide-react";
+import { Activity, KeyRound, Pencil, Plus, UserRoundX } from "lucide-react";
 import { Avatar, Badge, Button, Card, Pagination, SearchInput, Select, Table, TH, THead, TR, TD, useToast } from "@/ui";
 import { PageHeader } from "@/components/PageHeader";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { usePagination } from "@/lib/hooks";
-import { relativeTime } from "@/lib/format";
+import { ago } from "@/lib/api";
 import { supabase } from "@/lib/supabaseClient";
 import type { Student } from "@/types";
 
@@ -18,6 +18,7 @@ type ProfileRow = {
   avatar_color: string;
   status: "active" | "inactive";
   updated_at: string;
+  last_seen_at: string | null;
 };
 
 function rowToStudent(r: ProfileRow): Student {
@@ -31,7 +32,7 @@ function rowToStudent(r: ProfileRow): Student {
     avatarColor: r.avatar_color,
     status: r.status,
     joinedAt: "",
-    lastActive: r.updated_at,
+    lastActive: r.last_seen_at ?? "",
   };
 }
 
@@ -49,7 +50,7 @@ export default function StudentManagement() {
     setLoadingData(true);
     const { data, error } = await supabase
       .from("profiles")
-      .select("id, full_name, username, roll_number, class_name, avatar_color, status, updated_at")
+      .select("id, full_name, username, roll_number, class_name, avatar_color, status, updated_at, last_seen_at")
       .eq("role", "student")
       .order("roll_number", { ascending: true });
     if (error) {
@@ -171,9 +172,16 @@ export default function StudentManagement() {
                       {s.status === "active" ? "Active" : "Inactive"}
                     </Badge>
                   </TD>
-                  <TD className="text-muted whitespace-nowrap">{relativeTime(s.lastActive)}</TD>
+                  <TD className="text-muted whitespace-nowrap">{s.lastActive ? ago(s.lastActive) : "Never"}</TD>
                   <TD>
                     <div className="flex items-center justify-end gap-1">
+                      <button
+                        title="Activity"
+                        onClick={() => navigate(`/teacher/students/${s.id}/activity`)}
+                        className="rounded-lg p-1.5 text-muted hover:bg-slate-100 hover:text-brand-600"
+                      >
+                        <Activity className="size-4" />
+                      </button>
                       <button
                         title="Edit"
                         onClick={() => navigate(`/teacher/students/${s.id}/edit`)}

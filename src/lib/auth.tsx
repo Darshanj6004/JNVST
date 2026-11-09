@@ -116,6 +116,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
       setUser(buildUser(profile));
+      // Record activity for the teacher's "last seen" (throttled on the server).
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      void (supabase.rpc as any)("touch_last_seen").then(() => undefined, () => undefined);
     } else {
       console.error("Failed to fetch profile:", error?.message);
     }

@@ -13,6 +13,7 @@ import {
   Trophy,
   Settings,
   Layers,
+  Activity,
   type LucideIcon,
 } from "lucide-react";
 
@@ -53,7 +54,7 @@ export const teacherNav: NavSection[] = [
       { label: "Dashboard", to: "/teacher/dashboard", icon: LayoutDashboard },
       { label: "Students", to: "/teacher/students", icon: Users },
       { label: "Question Bank", to: "/teacher/questions", icon: Database },
-      { label: "Practice Sets", to: "/teacher/practice-sets", icon: Layers },
+      { label: "Practice Sets", to: "/teacher/practice-sets", icon: Layers, end: true },
       { label: "Mock Tests", to: "/teacher/mock-tests", icon: ClipboardList, end: true },
       { label: "Schedule Mock", to: "/teacher/mock-tests/new", icon: CalendarPlus },
     ],
@@ -61,6 +62,7 @@ export const teacherNav: NavSection[] = [
   {
     heading: "Insights",
     items: [
+      { label: "Student Activity", to: "/teacher/activity", icon: Activity },
       { label: "Reports", to: "/teacher/reports", icon: FileBarChart },
       { label: "Weak Students", to: "/teacher/weak-students", icon: TriangleAlert },
       { label: "Merit List", to: "/teacher/merit-list", icon: Trophy },

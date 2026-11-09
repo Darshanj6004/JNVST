@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
-import { Crown, Download, Medal, RefreshCw, Trophy } from "lucide-react";
-import { Avatar, Badge, Button, Card, CardBody, Select, Table, TH, THead, TR, TD } from "@/ui";
+import { Crown, Download, FileSpreadsheet, Medal, RefreshCw, Trophy } from "lucide-react";
+import * as XLSX from "xlsx";
+import { Avatar, Badge, Button, Card, CardBody, Select, Table, TH, THead, TR, TD, useToast } from "@/ui";
 import { PageHeader } from "@/components/PageHeader";
 import { supabase } from "@/lib/supabaseClient";
-import { finalizeExpiredAttempts } from "@/lib/api";
+import { finalizeExpiredAttempts, rpc } from "@/lib/api";
+import { useSettings } from "@/lib/useSettings";
+import { printReport } from "@/lib/print";
 import { cn } from "@/lib/cn";
 
 type RankedStudent = {
@@ -15,15 +18,20 @@ type RankedStudent = {
   score: number;
   total_correct: number;
   total_attempted: number;
+  total_questions: number;
   total_marks: number;
+  pct: number;
   rank: number;
+  submitted_at: string | null;
 };
 
-type DBTest = { id: string; title: string; total_marks: number };
+type DBTest = { id: string; title: string; total_marks: number; scheduled_at: string | null };
 
 const medals = ["#f59e0b", "#94a3b8", "#b45309"];
 
 export default function MeritList() {
+  const { toast } = useToast();
+  const settings = useSettings();
   const [tests, setTests] = useState<DBTest[]>([]);
   const [selectedTestId, setSelectedTestId] = useState<string>("");
   const [ranked, setRanked] = useState<RankedStudent[]>([]);
@@ -34,7 +42,7 @@ export default function MeritList() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const sb = supabase as any;
     sb.from("mock_tests")
-      .select("id, title, total_marks")
+      .select("id, title, total_marks, scheduled_at")
       .in("status", ["live", "completed"])
       .order("scheduled_at", { ascending: false })
       .then(({ data }: { data: DBTest[] }) => {
@@ -50,45 +58,21 @@ export default function MeritList() {
     setLoading(true);
     await finalizeExpiredAttempts();
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const sb = supabase as any;
-
-    // Get selected test's total marks
-    const selectedTest = tests.find((t) => t.id === selectedTestId);
-    const totalMarks = selectedTest?.total_marks ?? 100;
-
-    // Get all submitted attempts for this test
-    const { data: attempts } = await sb
-      .from("exam_attempts")
-      .select("student_id, score, total_correct, total_attempted, profiles(full_name, roll_number, class_name, avatar_color)")
-      .eq("mock_test_id", selectedTestId)
-      .eq("status", "submitted")
-      .order("score", { ascending: false });
-
-    const rows: RankedStudent[] = (attempts ?? []).map(
-      (a: {
-        student_id: string;
-        score: number;
-        total_correct: number;
-        total_attempted: number;
-        profiles: { full_name: string; roll_number: string | null; class_name: string | null; avatar_color: string };
-      }, i: number) => ({
-        student_id: a.student_id,
-        full_name: a.profiles?.full_name ?? "Unknown",
-        roll_number: a.profiles?.roll_number ?? null,
-        class_name: a.profiles?.class_name ?? null,
-        avatar_color: a.profiles?.avatar_color ?? "#2563EB",
-        score: a.score ?? 0,
-        total_correct: a.total_correct ?? 0,
-        total_attempted: a.total_attempted ?? 0,
-        total_marks: totalMarks,
-        rank: i + 1,
-      })
-    );
+    let rows: RankedStudent[] = [];
+    try {
+      rows = ((await rpc<RankedStudent[]>("merit_list", { p_test_id: selectedTestId })) ?? []).map((r) => ({
+        ...r,
+        score: Number(r.score),
+        total_marks: Number(r.total_marks),
+        pct: Number(r.pct),
+      }));
+    } catch (e) {
+      toast({ type: "error", title: "Could not load merit list", message: (e as Error).message });
+    }
 
     setRanked(rows);
     setLoading(false);
-  }, [selectedTestId, tests]);
+  }, [selectedTestId, toast]);
 
   useEffect(() => {
     if (selectedTestId) loadRankings();
@@ -97,6 +81,59 @@ export default function MeritList() {
   const podium = ranked.slice(0, 3);
   const rest = ranked.slice(3);
   const selectedTest = tests.find((t) => t.id === selectedTestId);
+
+  const reportRows = ranked.map((s) => [
+    s.rank,
+    s.full_name,
+    s.roll_number ?? "—",
+    s.class_name ?? "—",
+    `${s.score} / ${s.total_marks}`,
+    `${s.pct}%`,
+    s.total_correct,
+    `${s.total_attempted} / ${s.total_questions}`,
+  ]);
+  const avgPct = ranked.length ? Math.round(ranked.reduce((a, s) => a + s.pct, 0) / ranked.length) : 0;
+
+  const downloadPdf = () => {
+    if (!selectedTest || ranked.length === 0) return;
+    printReport({
+      title: `Merit List — ${selectedTest.title}`,
+      subtitle: selectedTest.scheduled_at
+        ? `Test date: ${new Date(selectedTest.scheduled_at).toLocaleDateString("en-IN", { dateStyle: "long" })}`
+        : undefined,
+      schoolName: settings.school_name,
+      schoolAddress: settings.school_address,
+      facts: [
+        ["Students appeared", String(ranked.length)],
+        ["Highest", `${ranked[0].score} / ${ranked[0].total_marks}`],
+        ["Class average", `${avgPct}%`],
+      ],
+      columns: [
+        { label: "Rank", align: "center", width: "48px" },
+        { label: "Student name" },
+        { label: "Roll No.", align: "center" },
+        { label: "Class", align: "center" },
+        { label: "Marks", align: "right" },
+        { label: "%", align: "right" },
+        { label: "Correct", align: "right" },
+        { label: "Attempted", align: "right" },
+      ],
+      rows: reportRows,
+      highlightTop: ranked.filter((s) => s.rank <= 3).length,
+      footnote: "Students with equal marks share the same rank.",
+    });
+  };
+
+  const downloadExcel = () => {
+    if (!selectedTest || ranked.length === 0) return;
+    const ws = XLSX.utils.aoa_to_sheet([
+      ["Rank", "Student name", "Roll No.", "Class", "Marks", "%", "Correct", "Attempted"],
+      ...reportRows,
+    ]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Merit list");
+    XLSX.writeFile(wb, `merit-list-${selectedTest.title.replace(/[^\w\u0900-\u097F]+/g, "-")}.xlsx`);
+  };
 
   return (
     <div className="space-y-6">
@@ -111,7 +148,19 @@ export default function MeritList() {
               onClick={loadRankings}
               disabled={loading}
             />
-            <Button variant="secondary" leftIcon={<Download className="size-4" />}>
+            <Button
+              variant="secondary"
+              leftIcon={<FileSpreadsheet className="size-4" />}
+              onClick={downloadExcel}
+              disabled={loading || ranked.length === 0}
+            >
+              Excel
+            </Button>
+            <Button
+              leftIcon={<Download className="size-4" />}
+              onClick={downloadPdf}
+              disabled={loading || ranked.length === 0}
+            >
               Download PDF
             </Button>
           </div>
@@ -174,9 +223,9 @@ export default function MeritList() {
                       <Avatar name={s.full_name} color={s.avatar_color} size={64} />
                       <span
                         className="absolute -right-1 -top-1 flex size-7 items-center justify-center rounded-full text-white ring-2 ring-white"
-                        style={{ backgroundColor: medals[i] ?? "#64748b" }}
+                        style={{ backgroundColor: medals[s.rank - 1] ?? "#64748b" }}
                       >
-                        {i === 0 ? <Crown className="size-4" /> : <Medal className="size-4" />}
+                        {s.rank === 1 ? <Crown className="size-4" /> : <Medal className="size-4" />}
                       </span>
                     </div>
                     <p className="mt-3 text-sm font-semibold text-ink">{s.full_name}</p>
@@ -188,7 +237,7 @@ export default function MeritList() {
                       {s.score}
                       <span className="text-base text-muted">/{s.total_marks}</span>
                     </p>
-                    <Badge tone={i === 0 ? "warning" : "neutral"} className="mt-1">
+                    <Badge tone={s.rank === 1 ? "warning" : "neutral"} className="mt-1">
                       Rank {s.rank}
                     </Badge>
                   </CardBody>
@@ -207,6 +256,7 @@ export default function MeritList() {
                   <TH>Roll No.</TH>
                   <TH>Class</TH>
                   <TH>Score</TH>
+                  <TH>%</TH>
                   <TH>Correct</TH>
                   <TH>Attempted</TH>
                 </tr>
@@ -244,8 +294,11 @@ export default function MeritList() {
                         <span className="text-xs text-muted">/{s.total_marks}</span>
                       </span>
                     </TD>
+                    <TD className="tabular">{s.pct}%</TD>
                     <TD className="tabular text-success">{s.total_correct}</TD>
-                    <TD className="tabular text-muted">{s.total_attempted}</TD>
+                    <TD className="tabular text-muted">
+                      {s.total_attempted}/{s.total_questions}
+                    </TD>
                   </TR>
                 ))}
               </tbody>

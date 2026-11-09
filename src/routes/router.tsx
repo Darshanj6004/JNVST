@@ -28,6 +28,9 @@ import AddEditQuestion from "@/features/teacher/AddEditQuestion";
 import ExcelImport from "@/features/teacher/ExcelImport";
 import CreatePracticeSet from "@/features/teacher/CreatePracticeSet";
 import PracticeSets from "@/features/teacher/PracticeSets";
+import PracticeSetProgress from "@/features/teacher/PracticeSetProgress";
+import StudentActivity from "@/features/teacher/StudentActivity";
+import StudentActivityDetail from "@/features/teacher/StudentActivityDetail";
 import CreateScheduleMock from "@/features/teacher/CreateScheduleMock";
 import Reports from "@/features/teacher/Reports";
 import WeakStudents from "@/features/teacher/WeakStudents";
@@ -80,6 +83,9 @@ export const router = createBrowserRouter([
       { path: "questions/import", Component: ExcelImport },
       { path: "practice-sets", Component: PracticeSets },
       { path: "practice-sets/new", Component: CreatePracticeSet },
+      { path: "practice-sets/:id", Component: PracticeSetProgress },
+      { path: "activity", Component: StudentActivity },
+      { path: "students/:id/activity", Component: StudentActivityDetail },
       { path: "mock-tests", Component: MockTestManagement },
       { path: "mock-tests/new", Component: CreateScheduleMock },
       { path: "reports", Component: Reports },

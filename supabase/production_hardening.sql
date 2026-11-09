@@ -906,3 +906,144 @@ begin
   where id = p_student_id;
 end;
 $$;
+
+-- ----------------------------------------------------------------
+-- 10. ACTIVITY TRACKING, PRACTICE-SET PROGRESS, MERIT LIST
+-- ----------------------------------------------------------------
+alter table public.profiles add column if not exists last_seen_at timestamptz;
+create index if not exists idx_practice_attempts_set on public.practice_attempts(practice_set_id, student_id);
+
+-- Called by the app when a user opens it (at most once every 5 minutes).
+create or replace function public.touch_last_seen()
+returns void language sql security definer set search_path = public as $$
+  update public.profiles set last_seen_at = now()
+  where id = auth.uid() and (last_seen_at is null or last_seen_at < now() - interval '5 minutes');
+$$;
+grant execute on function public.touch_last_seen() to authenticated;
+
+-- Teacher: one row per active student with practice & test activity.
+-- practice_days_14 = number of different days with at least one practice session in the last 14 days.
+drop function if exists public.class_activity_summary();
+create or replace function public.class_activity_summary()
+returns table (student_id uuid, full_name text, roll_number text, class_name text, avatar_color text,
+  last_seen_at timestamptz, practice_total int, practice_7d int, practice_30d int, practice_days_14 int,
+  last_practice_at timestamptz, practice_accuracy numeric, sets_done int,
+  tests_taken int, avg_test_pct numeric, last_test_at timestamptz)
+language plpgsql stable security definer set search_path = public as $$
+begin
+  if public.my_role() is distinct from 'teacher' then raise exception 'Teachers only'; end if;
+  return query
+    with pa as (
+      select x.student_id,
+             count(*)::int as total,
+             count(*) filter (where x.created_at > now() - interval '7 days')::int as d7,
+             count(*) filter (where x.created_at > now() - interval '30 days')::int as d30,
+             max(x.created_at) as last_at,
+             round(sum(x.correct)::numeric * 100 / nullif(sum(x.total), 0), 1) as acc,
+             count(distinct x.practice_set_id)::int as sets
+      from public.practice_attempts x group by x.student_id
+    ),
+    ex as (
+      select ea.student_id, count(*)::int as n,
+             round(avg(ea.score / nullif(mt.total_marks, 0) * 100), 1) as avg_pct,
+             max(ea.submitted_at) as last_at
+      from public.exam_attempts ea join public.mock_tests mt on mt.id = ea.mock_test_id
+      where ea.status = 'submitted' group by ea.student_id
+    ),
+    days as (
+      select z.student_id, count(distinct (z.created_at at time zone 'Asia/Kolkata')::date)::int as n
+      from public.practice_attempts z where z.created_at > now() - interval '14 days'
+      group by z.student_id
+    )
+    select p.id, p.full_name, p.roll_number, p.class_name, p.avatar_color, p.last_seen_at,
+           coalesce(pa.total, 0), coalesce(pa.d7, 0), coalesce(pa.d30, 0), coalesce(days.n, 0),
+           pa.last_at, pa.acc, coalesce(pa.sets, 0),
+           coalesce(ex.n, 0), ex.avg_pct, ex.last_at
+    from public.profiles p
+    left join pa on pa.student_id = p.id
+    left join ex on ex.student_id = p.id
+    left join days on days.student_id = p.id
+    where p.role = 'student' and p.status = 'active';
+end;
+$$;
+
+-- Teacher: full activity timeline of one student (practice + tests), newest first.
+create or replace function public.student_activity(p_student uuid)
+returns table (kind text, title text, subject_code text, topic_name text, difficulty text,
+  correct int, total int, pct numeric, at timestamptz)
+language plpgsql stable security definer set search_path = public as $$
+begin
+  if public.my_role() is distinct from 'teacher' then raise exception 'Teachers only'; end if;
+  return query
+    select * from (
+      select 'practice'::text, coalesce(ps.title, 'Self practice'), pa.subject_code, pa.topic_name, pa.difficulty,
+             pa.correct, pa.total, round(pa.correct::numeric * 100 / nullif(pa.total, 0), 1), pa.created_at
+      from public.practice_attempts pa
+      left join public.practice_sets ps on ps.id = pa.practice_set_id
+      where pa.student_id = p_student
+      union all
+      select 'test'::text, mt.title, null::text, null::text, null::text,
+             ea.total_correct, mt.total_questions, round(ea.score / nullif(mt.total_marks, 0) * 100, 1), ea.submitted_at
+      from public.exam_attempts ea join public.mock_tests mt on mt.id = ea.mock_test_id
+      where ea.student_id = p_student and ea.status = 'submitted'
+    ) x
+    order by 9 desc
+    limit 500;
+end;
+$$;
+
+-- Teacher: summary per practice set.
+create or replace function public.practice_sets_overview()
+returns table (set_id uuid, students_attempted int, attempts int, avg_pct numeric, last_at timestamptz)
+language plpgsql stable security definer set search_path = public as $$
+begin
+  if public.my_role() is distinct from 'teacher' then raise exception 'Teachers only'; end if;
+  return query
+    select pa.practice_set_id, count(distinct pa.student_id)::int, count(*)::int,
+           round(sum(pa.correct)::numeric * 100 / nullif(sum(pa.total), 0), 1), max(pa.created_at)
+    from public.practice_attempts pa
+    where pa.practice_set_id is not null
+    group by pa.practice_set_id;
+end;
+$$;
+
+-- Teacher: every active student's progress on one practice set (incl. not started).
+create or replace function public.practice_set_progress(p_set_id uuid)
+returns table (student_id uuid, full_name text, roll_number text, class_name text, avatar_color text,
+  attempts int, best_pct numeric, last_pct numeric, first_at timestamptz, last_at timestamptz, active_days int)
+language plpgsql stable security definer set search_path = public as $$
+begin
+  if public.my_role() is distinct from 'teacher' then raise exception 'Teachers only'; end if;
+  return query
+    select p.id, p.full_name, p.roll_number, p.class_name, p.avatar_color,
+           count(pa.id)::int,
+           max(round(pa.correct::numeric * 100 / nullif(pa.total, 0), 1)),
+           (array_agg(round(pa.correct::numeric * 100 / nullif(pa.total, 0), 1) order by pa.created_at desc))[1],
+           min(pa.created_at), max(pa.created_at),
+           count(distinct (pa.created_at at time zone 'Asia/Kolkata')::date)::int
+    from public.profiles p
+    left join public.practice_attempts pa on pa.student_id = p.id and pa.practice_set_id = p_set_id
+    where p.role = 'student' and p.status = 'active'
+    group by p.id;
+end;
+$$;
+
+-- Teacher: merit list of one test with proper tie handling (same score = same rank).
+create or replace function public.merit_list(p_test_id uuid)
+returns table (rank int, student_id uuid, full_name text, roll_number text, class_name text, avatar_color text,
+  score numeric, total_marks numeric, total_correct int, total_attempted int, total_questions int,
+  pct numeric, submitted_at timestamptz)
+language plpgsql stable security definer set search_path = public as $$
+begin
+  if public.my_role() is distinct from 'teacher' then raise exception 'Teachers only'; end if;
+  return query
+    select (rank() over (order by ea.score desc))::int, p.id, p.full_name, p.roll_number, p.class_name, p.avatar_color,
+           ea.score, mt.total_marks, ea.total_correct, ea.total_attempted, mt.total_questions,
+           round(ea.score / nullif(mt.total_marks, 0) * 100, 1), ea.submitted_at
+    from public.exam_attempts ea
+    join public.profiles p on p.id = ea.student_id
+    join public.mock_tests mt on mt.id = ea.mock_test_id
+    where ea.mock_test_id = p_test_id and ea.status = 'submitted'
+    order by ea.score desc, p.full_name;
+end;
+$$;

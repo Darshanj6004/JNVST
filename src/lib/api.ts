@@ -134,3 +134,47 @@ export async function fetchAll<T>(
   }
   return { data: out, error: null };
 }
+
+export interface ActivityRow {
+  student_id: string;
+  full_name: string;
+  roll_number: string | null;
+  class_name: string | null;
+  avatar_color: string;
+  last_seen_at: string | null;
+  practice_total: number;
+  practice_7d: number;
+  practice_30d: number;
+  practice_days_14: number;
+  last_practice_at: string | null;
+  practice_accuracy: number | null;
+  sets_done: number;
+  tests_taken: number;
+  avg_test_pct: number | null;
+  last_test_at: string | null;
+}
+
+export type Regularity = "regular" | "occasional" | "inactive";
+
+/** Practice regularity from the number of practice days in the last 14 days. */
+export function regularity(practiceDays14: number): Regularity {
+  if (practiceDays14 >= 6) return "regular";
+  if (practiceDays14 >= 2) return "occasional";
+  return "inactive";
+}
+
+export const REGULARITY_META: Record<Regularity, { label: string; tone: "success" | "warning" | "danger"; hint: string }> = {
+  regular: { label: "Regular", tone: "success", hint: "practised on 6+ of the last 14 days" },
+  occasional: { label: "Occasional", tone: "warning", hint: "practised on 2–5 of the last 14 days" },
+  inactive: { label: "Not practising", tone: "danger", hint: "practised on 0–1 of the last 14 days" },
+};
+
+/** "3 days ago", "today", "—" */
+export function ago(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+  if (days <= 0) return "Today";
+  if (days === 1) return "Yesterday";
+  if (days < 30) return `${days} days ago`;
+  return new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+}

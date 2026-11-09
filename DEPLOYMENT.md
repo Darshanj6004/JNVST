@@ -79,6 +79,14 @@ papers with *Import Excel* and fill the Source column (e.g. `JNVST 2024`).
    - any student who did not press Submit is graded automatically,
    - students can then see the answer key and explanations on their Result page.
 6. **Reports / Weak Students / Merit List**: class analysis. *Reports → Export report* downloads an Excel file.
+   **Merit List → Download PDF** opens the print dialog; choose *Save as PDF* (school header, ranks, signature line).
+   Students with equal marks share the same rank.
+7. **Student Activity**: every student's practice regularity over the last 14 days
+   (*Regular* = practised on 6+ days, *Occasional* = 2–5 days, *Not practising* = 0–1 day), sessions in the last
+   7/30 days, practice accuracy, mock tests and last seen. Click **View** for one student's 30-day activity calendar,
+   subject-wise accuracy, practice sets solved and full timeline. Both pages export to PDF and Excel.
+8. **Practice Sets → Progress**: for each set, which students solved it, how many times and on how many days,
+   best/last score, and who has **not started** (so you can remind them). Downloadable as PDF.
 
 ## 5. How the exam is protected
 

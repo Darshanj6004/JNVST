@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router";
-import { Eye, EyeOff, Layers, Plus, Trash2 } from "lucide-react";
+import { BarChart3, Eye, EyeOff, Layers, Plus, Trash2 } from "lucide-react";
 import { Badge, Button, Card, CardBody, EmptyState, Spinner, Table, TD, TH, THead, TR, useToast } from "@/ui";
 import { PageHeader } from "@/components/PageHeader";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
-import { db, friendlyError } from "@/lib/api";
+import { ago, db, friendlyError, rpc } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
 
 type SetRow = {
@@ -21,25 +21,30 @@ type SetRow = {
 export default function PracticeSets() {
   const { toast } = useToast();
   const [rows, setRows] = useState<SetRow[]>([]);
-  const [attemptCounts, setAttemptCounts] = useState<Record<string, number>>({});
+  const [overview, setOverview] = useState<Record<string, { students: number; attempts: number; avg: number | null; last: string | null }>>({});
+  const [studentCount, setStudentCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [deleteTarget, setDeleteTarget] = useState<SetRow | null>(null);
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [{ data, error }, { data: att }] = await Promise.all([
+    const [{ data, error }, ov, { count }] = await Promise.all([
       db
         .from("practice_sets")
         .select("id, title, description, difficulty, question_ids, is_active, created_at, subjects(name)")
         .order("created_at", { ascending: false }),
-      db.from("practice_attempts").select("practice_set_id").not("practice_set_id", "is", null).limit(10000),
+      rpc<{ set_id: string; students_attempted: number; attempts: number; avg_pct: number | null; last_at: string | null }[]>(
+        "practice_sets_overview",
+      ).catch(() => []),
+      db.from("profiles").select("id", { count: "exact", head: true }).eq("role", "student").eq("status", "active"),
     ]);
     if (error) toast({ type: "error", title: "Failed to load", message: friendlyError(error.message) });
     setRows((data as SetRow[]) ?? []);
-    const counts: Record<string, number> = {};
-    for (const a of (att ?? []) as { practice_set_id: string }[]) counts[a.practice_set_id] = (counts[a.practice_set_id] ?? 0) + 1;
-    setAttemptCounts(counts);
+    const m: typeof overview = {};
+    for (const o of ov ?? []) m[o.set_id] = { students: o.students_attempted, attempts: o.attempts, avg: o.avg_pct == null ? null : Number(o.avg_pct), last: o.last_at };
+    setOverview(m);
+    setStudentCount(count ?? 0);
     setLoading(false);
   }, [toast]);
 
@@ -109,7 +114,9 @@ export default function PracticeSets() {
                   <TH>Title</TH>
                   <TH>Subject</TH>
                   <TH>Questions</TH>
-                  <TH>Times practised</TH>
+                  <TH>Students solved</TH>
+                  <TH>Avg score</TH>
+                  <TH>Last solved</TH>
                   <TH>Status</TH>
                   <TH>Created</TH>
                   <TH className="text-right">Actions</TH>
@@ -129,7 +136,12 @@ export default function PracticeSets() {
                       )}
                     </TD>
                     <TD className="tabular">{r.question_ids.length}</TD>
-                    <TD className="tabular">{attemptCounts[r.id] ?? 0}</TD>
+                    <TD className="tabular">
+                      {overview[r.id]?.students ?? 0}/{studentCount}
+                      <span className="text-xs text-muted"> · {overview[r.id]?.attempts ?? 0} times</span>
+                    </TD>
+                    <TD className="tabular">{overview[r.id]?.avg != null ? `${overview[r.id]?.avg}%` : "—"}</TD>
+                    <TD className="text-[13px] text-muted">{ago(overview[r.id]?.last)}</TD>
                     <TD>
                       <Badge tone={r.is_active ? "success" : "neutral"} dot>
                         {r.is_active ? "Visible" : "Hidden"}
@@ -138,6 +150,11 @@ export default function PracticeSets() {
                     <TD className="text-xs text-muted">{formatDateTime(r.created_at)}</TD>
                     <TD className="text-right">
                       <div className="inline-flex gap-1">
+                        <Link to={`/teacher/practice-sets/${r.id}`}>
+                          <Button size="sm" variant="secondary" leftIcon={<BarChart3 className="size-4" />}>
+                            Progress
+                          </Button>
+                        </Link>
                         <Button
                           size="sm"
                           variant="ghost"
