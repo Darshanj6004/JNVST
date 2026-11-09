@@ -1,149 +1,354 @@
-// Language Test — original reading-comprehension passages (JNVST style:
-// read a passage, answer 5 questions). The FIRST option is always correct
-// here; build.mjs shuffles the options.
+// Language Test (Marathi medium) — original reading-comprehension passages
+// in the JNVST pattern: read a passage, answer 5 questions.
+// The FIRST option is always the correct one here; arrange() shuffles them.
 import { arrange, uuidFrom } from "./lib.mjs";
 
 export const LANG_TOPICS = {
-  facts: "Comprehension: Facts and Details",
-  main: "Comprehension: Main Idea and Title",
-  vocab: "Comprehension: Word Meanings",
-  infer: "Comprehension: Inference",
-  grammar: "Comprehension: Grammar and Usage",
+  facts: "आकलन: तथ्ये व तपशील",
+  main: "आकलन: मध्यवर्ती कल्पना व शीर्षक",
+  vocab: "आकलन: शब्दार्थ",
+  infer: "आकलन: अनुमान",
+  grammar: "आकलन: व्याकरण",
 };
 
 const P = [
   {
-    title: "The Rain Gauge",
-    text: `Lakshmi lived in a small village where most people were farmers. Every year the farmers argued about how much rain had fallen. One day Lakshmi's science teacher showed the class how to make a rain gauge from a plastic bottle and a ruler. Lakshmi made one and placed it in an open space behind her house, away from trees. Each morning she measured the water, wrote the number in a notebook and emptied the bottle. At the end of the monsoon, she showed her notebook at the village meeting. The farmers were surprised to see that July had received twice as much rain as June. From then on, they asked Lakshmi before deciding when to sow their seeds.`,
+    title: "पावसाचे मोजमाप",
+    text: `लक्ष्मीच्या गावात बहुतेक लोक शेती करत. पाऊस किती पडला यावरून दरवर्षी शेतकऱ्यांमध्ये वाद होत असे. एके दिवशी विज्ञानाच्या शिक्षकांनी वर्गात प्लास्टिकची बाटली आणि पट्टी वापरून पर्जन्यमापक कसा बनवायचा ते दाखवले. लक्ष्मीने घरी तसाच पर्जन्यमापक बनवला आणि तो घराच्या मागे, झाडांपासून दूर मोकळ्या जागेत ठेवला. ती रोज सकाळी पाणी मोजून वहीत आकडा लिहायची आणि बाटली रिकामी करायची. पावसाळा संपल्यावर तिने ती वही ग्रामसभेत दाखवली. जून महिन्यापेक्षा जुलैमध्ये दुप्पट पाऊस पडला हे पाहून शेतकरी चकित झाले. तेव्हापासून पेरणी करण्यापूर्वी ते लक्ष्मीचा सल्ला घेऊ लागले.`,
     qs: [
-      ["facts", "Where did Lakshmi place the rain gauge?", ["In an open space away from trees", "Under a big tree", "Inside the school", "On the roof of the temple"]],
-      ["facts", "What did Lakshmi do after measuring the water each morning?", ["She wrote the number and emptied the bottle", "She gave the water to the plants", "She told her teacher at once", "She left the water in the bottle"]],
-      ["infer", "Why did the farmers start asking Lakshmi before sowing seeds?", ["Her records showed how much rain fell each month", "She owned the largest farm", "She could predict the future", "Her teacher told them to"]],
-      ["vocab", "The word 'surprised' in the passage is closest in meaning to", ["astonished", "angry", "bored", "frightened"]],
-      ["main", "Which is the best title for the passage?", ["A Useful Notebook", "The Angry Farmers", "A Trip to the Market", "The Broken Bottle"]],
+      ["facts", "लक्ष्मीने पर्जन्यमापक कोठे ठेवला?", ["झाडांपासून दूर मोकळ्या जागेत", "मोठ्या झाडाखाली", "शाळेच्या वर्गात", "देवळाच्या छतावर"]],
+      ["facts", "पाणी मोजल्यानंतर लक्ष्मी काय करत असे?", ["आकडा वहीत लिहून बाटली रिकामी करत असे", "ते पाणी झाडांना घालत असे", "लगेच शिक्षकांना सांगत असे", "पाणी बाटलीतच ठेवत असे"]],
+      ["infer", "शेतकरी पेरणीपूर्वी लक्ष्मीचा सल्ला का घेऊ लागले?", ["तिच्या नोंदींवरून कोणत्या महिन्यात किती पाऊस पडला हे कळत होते", "तिची शेती सर्वांत मोठी होती", "ती भविष्य सांगू शकत होती", "शिक्षकांनी तसे सांगितले होते"]],
+      ["vocab", "'चकित होणे' म्हणजे —", ["आश्चर्य वाटणे", "राग येणे", "कंटाळा येणे", "भीती वाटणे"]],
+      ["main", "या उताऱ्याला योग्य शीर्षक कोणते?", ["उपयोगी वही", "रागावलेले शेतकरी", "बाजाराची सफर", "फुटलेली बाटली"]],
     ],
   },
   {
-    title: "Honeybees",
-    text: `Honeybees live together in large groups called colonies. A colony has one queen, a few hundred drones and thousands of worker bees. The queen lays all the eggs. The worker bees, which are all female, do almost every other job. They clean the hive, feed the young bees, guard the entrance and collect nectar and pollen from flowers. When a worker finds a good patch of flowers, she returns to the hive and performs a special 'waggle dance'. The direction and length of the dance tell the other bees where the flowers are. While collecting nectar, bees carry pollen from one flower to another. This helps plants produce fruits and seeds, so bees are very important for farmers.`,
+    title: "मधमाश्यांचे जग",
+    text: `मधमाश्या मोठ्या समूहात राहतात. अशा समूहाला वसाहत म्हणतात. प्रत्येक वसाहतीत एक राणी माशी, काही नर माश्या आणि हजारो कामकरी माश्या असतात. सर्व अंडी राणी माशी घालते. कामकरी माश्या पोळे स्वच्छ ठेवतात, लहान माश्यांना खाऊ घालतात, पोळ्याचे रक्षण करतात आणि फुलांतून मकरंद व परागकण गोळा करतात. एखाद्या माशीला फुलांचा चांगला ताटवा सापडला की ती पोळ्यात परत येऊन एक खास नाच करते. त्या नाचावरून इतर माश्यांना फुलांची दिशा आणि अंतर कळते. मकरंद गोळा करताना माश्या परागकण एका फुलावरून दुसऱ्या फुलावर नेतात. त्यामुळे झाडांना फळे व बिया येतात. म्हणून मधमाश्या शेतकऱ्यांच्या खऱ्या मित्र आहेत.`,
     qs: [
-      ["facts", "Who lays all the eggs in a colony?", ["The queen", "The worker bees", "The drones", "The guard bees"]],
-      ["facts", "How do worker bees tell others where flowers are?", ["By doing a waggle dance", "By buzzing loudly", "By bringing back a flower", "By changing colour"]],
-      ["infer", "Why are bees important for farmers?", ["They help plants make fruits and seeds", "They guard the fields", "They eat harmful insects", "They make the soil soft"]],
-      ["grammar", "In 'The worker bees, which are all female, do almost every other job', the word 'which' refers to", ["the worker bees", "the queen", "the flowers", "the drones"]],
-      ["main", "The passage is mainly about", ["how honeybees live and work together", "how to make honey at home", "why bees sting people", "the colours of flowers"]],
+      ["facts", "वसाहतीतील सर्व अंडी कोण घालते?", ["राणी माशी", "कामकरी माश्या", "नर माश्या", "रक्षक माश्या"]],
+      ["facts", "फुलांची दिशा इतर माश्यांना कशी कळते?", ["एका खास नाचावरून", "मोठ्याने गुणगुणल्याने", "फूल पोळ्यात आणल्याने", "रंग बदलल्याने"]],
+      ["infer", "मधमाश्या शेतकऱ्यांच्या मित्र का आहेत?", ["त्यांच्यामुळे झाडांना फळे व बिया येतात", "त्या शेताचे रक्षण करतात", "त्या माती मऊ करतात", "त्या हानिकारक कीटक खातात"]],
+      ["grammar", "'मधमाश्या' या शब्दाचे एकवचन कोणते?", ["मधमाशी", "मधमाशा", "मधमाश्यांनी", "मधमाशीला"]],
+      ["main", "हा उतारा मुख्यतः कशाबद्दल आहे?", ["मधमाश्या एकत्र कशा राहतात व काम करतात", "घरी मध कसा बनवावा", "मधमाश्या का डंख मारतात", "फुलांचे रंग"]],
     ],
   },
   {
-    title: "The Boy from Rameswaram",
-    text: `A. P. J. Abdul Kalam was born in 1931 in Rameswaram, a small town on an island in Tamil Nadu. His family was not rich, so as a young boy he helped by distributing newspapers early in the morning before school. He loved watching birds fly and wondered how they could rise so easily into the sky. His teachers noticed his curiosity and encouraged him to study hard. Kalam later became a scientist and worked on India's space and missile programmes. In 2002 he became the President of India. Even then, he loved meeting students and often told them to dream big and work hard to make their dreams come true.`,
+    title: "रामेश्वरमचा मुलगा",
+    text: `ए. पी. जे. अब्दुल कलाम यांचा जन्म १९३१ मध्ये तमिळनाडूमधील रामेश्वरम या बेटावरील लहान गावात झाला. त्यांचे कुटुंब श्रीमंत नव्हते. त्यामुळे लहानपणी ते शाळेत जाण्यापूर्वी पहाटे वर्तमानपत्रे वाटून घराला मदत करत. आकाशात सहज उडणारे पक्षी पाहून त्यांना खूप कुतूहल वाटे. त्यांच्या शिक्षकांनी हे कुतूहल ओळखले आणि त्यांना मन लावून अभ्यास करण्यास प्रोत्साहन दिले. पुढे कलाम वैज्ञानिक झाले आणि त्यांनी भारताच्या अवकाश व क्षेपणास्त्र कार्यक्रमात मोठे काम केले. २००२ मध्ये ते भारताचे राष्ट्रपती झाले. तरीही विद्यार्थ्यांना भेटणे त्यांना खूप आवडे. "मोठी स्वप्ने पाहा आणि ती पूर्ण करण्यासाठी कष्ट करा," असे ते मुलांना सांगत.`,
     qs: [
-      ["facts", "Where was Abdul Kalam born?", ["Rameswaram", "Chennai", "Delhi", "Mumbai"]],
-      ["facts", "What did young Kalam do to help his family?", ["He distributed newspapers", "He sold fruits", "He worked in a field", "He mended shoes"]],
-      ["infer", "Watching birds fly made young Kalam", ["curious about flying", "afraid of heights", "want to keep birds as pets", "stop going to school"]],
-      ["vocab", "The word 'encouraged' means", ["gave support and hope", "punished", "laughed at", "ignored"]],
-      ["grammar", "Which of these words is an adjective?", ["small", "born", "quickly", "and"]],
+      ["facts", "अब्दुल कलाम यांचा जन्म कोठे झाला?", ["रामेश्वरम", "चेन्नई", "दिल्ली", "मुंबई"]],
+      ["facts", "लहानपणी कलाम घराला कशी मदत करत?", ["वर्तमानपत्रे वाटून", "फळे विकून", "शेतात काम करून", "चपला दुरुस्त करून"]],
+      ["infer", "पक्ष्यांना उडताना पाहून कलामांच्या मनात काय निर्माण झाले?", ["उडण्याबद्दल कुतूहल", "उंचीची भीती", "पक्षी पाळण्याची इच्छा", "शाळा सोडण्याचा विचार"]],
+      ["vocab", "'प्रोत्साहन देणे' म्हणजे —", ["उत्साह वाढवणे", "शिक्षा करणे", "हसणे", "दुर्लक्ष करणे"]],
+      ["grammar", "'लहान गाव' या शब्दसमूहातील विशेषण कोणते?", ["लहान", "गाव", "मध्ये", "झाला"]],
     ],
   },
   {
-    title: "The Mangrove Forest",
-    text: `The Sundarbans is a huge mangrove forest where the rivers Ganga and Brahmaputra meet the Bay of Bengal. Mangroves are trees that can grow in salty water. Their roots grow above the mud like thin fingers so that they can breathe when the tide is high. The forest protects villages along the coast because the thick trees slow down strong winds and waves during storms. The Sundarbans is famous as the home of the Royal Bengal tiger, which is a good swimmer. Crocodiles, deer, monkeys and many kinds of birds also live there. Today people are working to protect the forest, because without it both the animals and the villagers would be in danger.`,
+    title: "स्वच्छतेचे संत",
+    text: `संत गाडगेबाबा महाराष्ट्रातील एक थोर समाजसुधारक होते. ते गावोगावी फिरत. त्यांच्या हातात नेहमी एक झाडू आणि डोक्यावर मातीचे गाडगे असे. एखाद्या गावात पोहोचताच ते आधी रस्ते झाडून स्वच्छ करत. संध्याकाळी लोकांना एकत्र जमवून ते कीर्तन करत. कीर्तनात ते सांगत, "देव देवळात नाही, तो माणसांत आहे. भुकेल्याला अन्न द्या, तहानलेल्याला पाणी द्या." त्यांनी लोकांना शिक्षणाचे महत्त्व पटवून दिले आणि अंधश्रद्धा सोडण्याचा उपदेश केले. त्यांच्या स्मरणार्थ महाराष्ट्र सरकार गावांच्या स्वच्छतेसाठी त्यांच्या नावाने अभियान राबवते.`,
     qs: [
-      ["facts", "Mangrove trees can grow in", ["salty water", "dry sand only", "snow", "rocky mountains"]],
-      ["facts", "Why do some mangrove roots grow above the mud?", ["To breathe when the tide is high", "To catch fish", "To hold up birds' nests", "To collect sunlight"]],
-      ["infer", "How does the forest protect coastal villages?", ["It slows down strong winds and waves", "It gives them electricity", "It keeps tigers away", "It makes the sea less salty"]],
-      ["vocab", "The opposite of 'huge' is", ["tiny", "large", "thick", "wide"]],
-      ["main", "Which is the best title for the passage?", ["A Forest that Protects", "Life in a Desert", "The Highest Mountain", "Fishing in the River"]],
+      ["facts", "गाडगेबाबांच्या हातात नेहमी काय असे?", ["झाडू", "काठी", "पुस्तक", "कंदील"]],
+      ["facts", "गावात पोहोचल्यावर गाडगेबाबा प्रथम काय करत?", ["रस्ते झाडून स्वच्छ करत", "जेवण करत", "देवळात जात", "झोप घेत"]],
+      ["main", "गाडगेबाबांच्या उपदेशाचा मुख्य संदेश कोणता?", ["माणसांची सेवा हीच देवाची सेवा", "रोज देवळात जा", "खूप पैसे कमवा", "गावे सोडून शहरात जा"]],
+      ["vocab", "'अंधश्रद्धा' या शब्दाचा योग्य अर्थ कोणता?", ["कारण नसताना ठेवलेला चुकीचा विश्वास", "डोळ्यांचा आजार", "खरी भक्ती", "अंधारातील प्रकाश"]],
+      ["grammar", "'स्वच्छ' या शब्दाचा विरुद्धार्थी शब्द कोणता?", ["अस्वच्छ", "निर्मळ", "सुंदर", "शुद्ध"]],
     ],
   },
   {
-    title: "Kites over Ahmedabad",
-    text: `In January, on the festival of Makar Sankranti, the sky over Ahmedabad fills with thousands of colourful kites. Weeks before the festival, families buy paper kites and spools of strong string called 'manja'. On the festival day, people climb onto their rooftops early in the morning. Neighbours shout 'Kai po che!' whenever they cut someone else's kite. Children run through the lanes to catch the kites that float down. In the evening, some people fly paper lanterns that glow in the dark sky. Doctors and animal lovers also remind everyone to be careful, because sharp kite strings can hurt birds. Many volunteers set up camps to treat injured birds during the festival.`,
+    title: "पहिल्या शिक्षिका",
+    text: `सावित्रीबाई फुले यांना भारतातील पहिल्या महिला शिक्षिका मानले जाते. त्या काळी मुलींना शिकवणे योग्य समजले जात नसे. महात्मा जोतीराव फुले यांनी सावित्रीबाईंना शिकवले आणि १८४८ मध्ये पुण्यात मुलींसाठी शाळा सुरू केली. सावित्रीबाई शाळेत शिकवायला जात तेव्हा काही लोक त्यांच्यावर चिखल व खडे फेकत. तरीही त्या डगमगल्या नाहीत. त्या पिशवीत एक जादा साडी घेऊन जात आणि शाळेत पोहोचल्यावर ती बदलत. त्यांनी कविता लिहिल्या आणि स्त्रियांना शिक्षणासाठी प्रेरणा दिली. आज लाखो मुली शिकत आहेत, त्यामागे सावित्रीबाईंसारख्या धैर्यवान व्यक्तींचे कष्ट आहेत.`,
     qs: [
-      ["facts", "When is Makar Sankranti celebrated?", ["In January", "In June", "In October", "In December"]],
-      ["facts", "What do people shout when they cut someone's kite?", ["Kai po che!", "Happy Diwali!", "Jai Ho!", "Well done!"]],
-      ["infer", "Why do volunteers set up camps during the festival?", ["To treat birds hurt by kite strings", "To sell kites", "To teach kite flying", "To stop the festival"]],
-      ["grammar", "In 'Children run through the lanes', the verb is", ["run", "children", "through", "lanes"]],
-      ["vocab", "The word 'glow' means", ["shine softly", "fall down", "break apart", "make noise"]],
+      ["facts", "मुलींची शाळा पुण्यात कोणत्या वर्षी सुरू झाली?", ["१८४८", "१९४७", "१८५७", "१९०५"]],
+      ["facts", "सावित्रीबाई पिशवीत जादा साडी का घेऊन जात?", ["लोक चिखल फेकत म्हणून शाळेत साडी बदलण्यासाठी", "ती विकण्यासाठी", "मुलींना भेट देण्यासाठी", "थंडी वाजू नये म्हणून"]],
+      ["infer", "'त्या डगमगल्या नाहीत' यावरून सावित्रीबाईंचा कोणता गुण दिसतो?", ["धैर्य", "आळस", "भित्रेपणा", "राग"]],
+      ["vocab", "'प्रेरणा' या शब्दाचा अर्थ —", ["एखादे काम करण्याची स्फूर्ती", "शिक्षा", "थकवा", "भेटवस्तू"]],
+      ["main", "उताऱ्याचे योग्य शीर्षक कोणते?", ["शिक्षणाची ज्योत लावणाऱ्या सावित्रीबाई", "पुण्याची बाजारपेठ", "साडीचे दुकान", "चिखलाचा खेळ"]],
     ],
   },
   {
-    title: "The Journey of a Water Drop",
-    text: `The water in our rivers, lakes and seas is always moving. When the sun heats the sea, tiny drops of water change into water vapour and rise into the air. This is called evaporation. High above the ground the air is cool, so the vapour turns back into tiny droplets that join together to form clouds. This is called condensation. When the droplets become too heavy, they fall to the ground as rain, or as snow in very cold places. Rainwater flows into streams and rivers and finally reaches the sea again. This never-ending journey is called the water cycle. Because of the water cycle, the same water has been used again and again for millions of years.`,
+    title: "पंढरीची वारी",
+    text: `आषाढी एकादशीला पंढरपूरच्या विठ्ठलाच्या दर्शनासाठी महाराष्ट्राच्या कानाकोपऱ्यातून लाखो वारकरी पायी जातात. या पायी यात्रेला वारी म्हणतात. संत ज्ञानेश्वर आणि संत तुकाराम यांच्या पालख्या आळंदी व देहू येथून निघतात. वारकरी डोक्यावर तुळशी वृंदावन घेऊन, टाळ-मृदंगाच्या गजरात अभंग गात चालतात. वाटेत गावागावांतील लोक त्यांना पाणी व जेवण देतात. वारीत श्रीमंत-गरीब, लहान-मोठा असा भेद नसतो. सगळे एकमेकांना 'माउली' म्हणून हाक मारतात. ऊन-पावसाची पर्वा न करता चालणारे वारकरी पाहून एकता आणि श्रद्धेचे दर्शन घडते.`,
     qs: [
-      ["facts", "What is evaporation?", ["Water changing into vapour and rising", "Clouds turning into rain", "Rain flowing into rivers", "Water freezing into ice"]],
-      ["facts", "Clouds are formed when water vapour", ["cools and turns into droplets", "becomes hotter", "falls on mountains", "mixes with soil"]],
-      ["infer", "Snow falls instead of rain in places that are", ["very cold", "very hot", "near the sea", "full of trees"]],
-      ["vocab", "The word 'never-ending' means", ["continuous", "short", "sudden", "finished"]],
-      ["main", "The passage mainly explains", ["the water cycle", "how to save water", "how rivers are named", "why the sea is salty"]],
+      ["facts", "वारकरी कोणाच्या दर्शनासाठी पंढरपूरला जातात?", ["विठ्ठलाच्या", "गणपतीच्या", "खंडोबाच्या", "महालक्ष्मीच्या"]],
+      ["facts", "संत तुकाराम यांची पालखी कोठून निघते?", ["देहू", "आळंदी", "पुणे", "नाशिक"]],
+      ["infer", "वारीत सगळे एकमेकांना 'माउली' म्हणतात, यावरून काय समजते?", ["सर्वजण समान व आपुलकीने वागतात", "सगळे एकाच घरातील असतात", "त्यांना नावे माहीत नसतात", "ते भांडत असतात"]],
+      ["grammar", "'टाळ-मृदंग' हे शब्द कोणत्या प्रकारचे नाम आहेत?", ["सामान्य नाम", "विशेष नाम", "भाववाचक नाम", "सर्वनाम"]],
+      ["main", "हा उतारा प्रामुख्याने कोणत्या गोष्टीचे वर्णन करतो?", ["पंढरपूरची पायी वारी", "पावसाळ्यातील शेती", "शहरातील जत्रा", "शाळेतील स्पर्धा"]],
     ],
   },
   {
-    title: "The Village Library",
-    text: `There was no library in Sonpur, so the children had very few books to read. Ramesh, a retired teacher, decided to do something about it. He cleaned an empty room in the panchayat building and put up a sign that said 'Library – Open to All'. At first he had only his own fifty books. Then he wrote letters to his old students, who were now living in different cities. Parcels of books began to arrive every week. Soon the room had more than a thousand books. Children came every evening after school, and even some grandparents learned to read there. Ramesh smiled and said, 'A book is a friend that never leaves you.'`,
+    title: "जंगलाचा राजा",
+    text: `चंद्रपूर जिल्ह्यातील ताडोबा हे महाराष्ट्रातील सर्वांत जुने राष्ट्रीय उद्यान आहे. येथे ताडोबा-अंधारी व्याघ्र प्रकल्प आहे. येथे बांबू आणि सागाची घनदाट झाडे आहेत. वाघांबरोबर येथे बिबटे, अस्वले, रानगवे, हरणे आणि अनेक प्रकारचे पक्षी राहतात. वाघ हा अन्नसाखळीतील सर्वोच्च प्राणी आहे. वाघ असतील तर हरणांची संख्या मर्यादित राहते आणि जंगलातील गवत व झाडे टिकून राहतात. म्हणून वाघ वाचवणे म्हणजे संपूर्ण जंगल वाचवणे होय. जंगलात फिरताना पर्यटकांनी शांतता पाळावी, प्लास्टिक टाकू नये आणि प्राण्यांना खायला देऊ नये, असे नियम आहेत.`,
     qs: [
-      ["facts", "Who started the library in Sonpur?", ["Ramesh, a retired teacher", "The village headman", "A group of children", "A city officer"]],
-      ["facts", "How many books did the library have at first?", ["Fifty", "One thousand", "Five hundred", "Ten"]],
-      ["infer", "Why did parcels of books start arriving?", ["Ramesh had written to his old students", "The government sent them", "Children bought them", "A shop gave them free"]],
-      ["grammar", "Which of these is a proper noun from the passage?", ["Sonpur", "library", "teacher", "books"]],
-      ["main", "What does Ramesh mean by 'A book is a friend that never leaves you'?", ["Books are always there to help and teach us", "Books cannot be borrowed", "Friends should read books", "Books are very heavy"]],
+      ["facts", "ताडोबा राष्ट्रीय उद्यान कोणत्या जिल्ह्यात आहे?", ["चंद्रपूर", "नाशिक", "रत्नागिरी", "सातारा"]],
+      ["facts", "ताडोबात कोणत्या झाडांचे जंगल घनदाट आहे?", ["बांबू आणि साग", "आंबा आणि फणस", "नारळ आणि सुपारी", "पेरू आणि चिकू"]],
+      ["infer", "'वाघ वाचवणे म्हणजे संपूर्ण जंगल वाचवणे' असे का म्हटले आहे?", ["वाघांमुळे जंगलातील प्राणी व वनस्पतींचा समतोल राखला जातो", "वाघ झाडे लावतात", "वाघ पर्यटकांना मदत करतात", "वाघ फक्त गवत खातात"]],
+      ["vocab", "'घनदाट' या शब्दाचा अर्थ —", ["खूप दाट", "विरळ", "उंच", "कोरडे"]],
+      ["grammar", "'पर्यटकांनी शांतता पाळावी' — या वाक्यातील क्रियापद कोणते?", ["पाळावी", "पर्यटकांनी", "शांतता", "नियम"]],
     ],
   },
   {
-    title: "Ship of the Desert",
-    text: `The camel is often called the 'ship of the desert' because it can carry people and goods across hot, sandy deserts for long distances. A camel can go without drinking water for many days. When it finally finds water, it can drink a very large amount in a few minutes. Its hump stores fat, not water as many people think. The fat gives the camel energy when food is hard to find. Camels have long eyelashes and can close their nostrils to keep out blowing sand. Their wide, padded feet do not sink into the soft sand. In Rajasthan, camels are still used by many families for farming, transport and even for racing at fairs.`,
+    title: "पोळा",
+    text: `श्रावण अमावास्येला महाराष्ट्रातील शेतकरी पोळा हा सण साजरा करतात. वर्षभर शेतात राबणाऱ्या बैलांबद्दल कृतज्ञता व्यक्त करण्याचा हा दिवस आहे. त्या दिवशी बैलांना कामाला जुंपले जात नाही. सकाळी त्यांना नदीवर नेऊन स्वच्छ आंघोळ घातली जाते. शिंगांना रंग लावतात, अंगावर झूल घालतात आणि गळ्यात घुंगरांच्या माळा बांधतात. घरी पुरणपोळीचा नैवेद्य करून बैलांना खाऊ घालतात. संध्याकाळी वाजतगाजत गावातून बैलांची मिरवणूक निघते. लहान मुले मातीच्या बैलांची पूजा करून हा सण आनंदाने साजरा करतात.`,
     qs: [
-      ["facts", "What does a camel's hump store?", ["Fat", "Water", "Sand", "Milk"]],
-      ["facts", "Why do camels' feet not sink into soft sand?", ["They are wide and padded", "They are very small", "They have sharp claws", "They are made of hair"]],
-      ["infer", "The camel is called the 'ship of the desert' because it", ["carries people and goods across the desert", "can swim in water", "is shaped like a boat", "lives near the sea"]],
-      ["vocab", "Which word means the same as 'goods'?", ["things to carry", "good people", "kind acts", "food only"]],
-      ["grammar", "Choose the correct plural form used in the passage.", ["eyelashes", "eyelash's", "eyelashs", "eyelashies"]],
+      ["facts", "पोळा सण कोणत्या दिवशी साजरा करतात?", ["श्रावण अमावास्येला", "दिवाळीच्या पाडव्याला", "गुढीपाडव्याला", "होळीच्या दिवशी"]],
+      ["facts", "पोळ्याच्या दिवशी बैलांना कोणता नैवेद्य खाऊ घालतात?", ["पुरणपोळी", "मोदक", "लाडू", "श्रीखंड"]],
+      ["main", "पोळा हा सण साजरा करण्यामागचा मुख्य हेतू कोणता?", ["बैलांबद्दल कृतज्ञता व्यक्त करणे", "नवीन बैल विकत घेणे", "शेताची नांगरणी करणे", "पावसाची प्रार्थना करणे"]],
+      ["vocab", "'राबणे' या शब्दाचा अर्थ —", ["कष्ट करणे", "विश्रांती घेणे", "खेळणे", "झोपणे"]],
+      ["grammar", "'घुंगरांच्या माळा' यातील 'माळा' हा शब्द कोणत्या वचनात आहे?", ["अनेकवचन", "एकवचन", "द्विवचन", "वचन नाही"]],
     ],
   },
   {
-    title: "The Clever Shepherd",
-    text: `A shepherd boy named Bhola took his goats to graze near a forest every day. One afternoon he saw dark clouds and heard the river roaring louder than usual. Bhola noticed that the water was rising quickly and that the small bridge to the village was in danger. Instead of running home alone, he gathered his goats and led them to a hill. Then he climbed a tall tree and waved his red cloth to warn the people working in the fields. The farmers saw the signal and moved to higher ground just before the river flooded the fields. That evening the whole village thanked Bhola for his presence of mind.`,
+    title: "कोकणचा राजा",
+    text: `कोकणातील रत्नागिरी आणि देवगड भागातील हापूस आंबा जगभर प्रसिद्ध आहे. त्याला 'फळांचा राजा' असेही म्हणतात. कोकणातील लाल माती, समुद्राजवळचे दमट हवामान आणि भरपूर पाऊस यामुळे येथे आंब्याची झाडे चांगली वाढतात. झाडाला मोहर आल्यापासून आंबा पिकेपर्यंत शेतकऱ्यांना खूप काळजी घ्यावी लागते. अवकाळी पाऊस पडला किंवा जास्त थंडी पडली तर मोहर गळून जातो. कच्चे आंबे काळजीपूर्वक उतरवून गवताच्या अढीत पिकवले जातात. पिकलेल्या हापूसचा सुगंध दूरपर्यंत दरवळतो. आंब्यांमुळे कोकणातील अनेक कुटुंबांना रोजगार मिळतो.`,
     qs: [
-      ["facts", "What did Bhola use to warn the farmers?", ["A red cloth", "A drum", "A whistle", "A letter"]],
-      ["facts", "Where did Bhola take his goats when the water rose?", ["To a hill", "Across the bridge", "Into the forest", "Back to the river"]],
-      ["vocab", "'Presence of mind' means", ["the ability to think quickly and act wisely", "being present in class", "having a good memory", "feeling very afraid"]],
-      ["infer", "What would probably have happened if Bhola had not warned the farmers?", ["They could have been caught in the flood", "They would have gone to the market", "The river would have dried up", "The goats would have run away"]],
-      ["main", "Which is the best title for the story?", ["Bhola Saves the Village", "The Lazy Goat", "A Day at the Fair", "The Lost Red Cloth"]],
+      ["facts", "हापूस आंबा मुख्यतः कोणत्या भागात पिकतो?", ["रत्नागिरी व देवगड", "नागपूर व अमरावती", "पुणे व सातारा", "नाशिक व धुळे"]],
+      ["facts", "कच्चे आंबे कशात पिकवले जातात?", ["गवताच्या अढीत", "फ्रिजमध्ये", "पाण्यात", "उन्हात उघड्यावर"]],
+      ["infer", "अवकाळी पावसाचा आंबा शेतकऱ्यांवर काय परिणाम होतो?", ["मोहर गळून उत्पादन कमी होते", "आंबे लवकर पिकतात", "झाडांची उंची वाढते", "आंब्यांचा रंग बदलतो"]],
+      ["vocab", "'दरवळणे' म्हणजे —", ["सुगंध पसरणे", "आवाज होणे", "रंग बदलणे", "गळून पडणे"]],
+      ["grammar", "'लाल माती' या शब्दसमूहातील विशेषण कोणते?", ["लाल", "माती", "समुद्र", "पाऊस"]],
     ],
   },
   {
-    title: "Food from Sunlight",
-    text: `Animals have to find their food, but green plants make their own. Plants take in water from the soil through their roots. They take in a gas called carbon dioxide from the air through tiny holes in their leaves. The green colouring in leaves, called chlorophyll, uses the energy of sunlight to turn water and carbon dioxide into food. This process is called photosynthesis. While making food, plants give out oxygen, which humans and animals need to breathe. That is why forests are sometimes called the lungs of the Earth. Without green plants, there would be no food for animals and no fresh oxygen in the air.`,
+    title: "पाण्याचा प्रवास",
+    text: `नदी, तलाव आणि समुद्रातील पाणी सतत फिरत असते. सूर्याच्या उष्णतेने समुद्रातील पाण्याचे बारीक कण वाफेत रूपांतरित होऊन हवेत वर जातात. याला बाष्पीभवन म्हणतात. उंचावर हवा थंड असल्याने वाफेचे पुन्हा पाण्याच्या थेंबांत रूपांतर होते आणि ढग तयार होतात. याला संघनन म्हणतात. थेंब जड झाले की ते पावसाच्या रूपाने जमिनीवर पडतात. खूप थंड प्रदेशात मात्र बर्फ पडतो. पावसाचे पाणी ओढ्यांतून नद्यांत आणि शेवटी पुन्हा समुद्रात पोहोचते. या कधीही न संपणाऱ्या प्रवासाला जलचक्र म्हणतात.`,
     qs: [
-      ["facts", "Through which part do plants take in water?", ["Roots", "Flowers", "Leaves", "Fruits"]],
-      ["facts", "What is chlorophyll?", ["The green colouring in leaves", "A kind of soil", "A gas in the air", "A type of root"]],
-      ["infer", "Forests are called the 'lungs of the Earth' because they", ["give out oxygen", "are very large", "have many animals", "grow near rivers"]],
-      ["vocab", "The word 'process' in the passage means", ["a series of steps", "a quick game", "a kind of plant", "a big forest"]],
-      ["grammar", "In 'Plants take in water', the subject is", ["Plants", "take", "in", "water"]],
+      ["facts", "बाष्पीभवन म्हणजे काय?", ["पाण्याचे वाफेत रूपांतर होऊन ती वर जाणे", "ढगातून पाऊस पडणे", "पाणी नदीत वाहणे", "पाण्याचा बर्फ होणे"]],
+      ["facts", "ढग कसे तयार होतात?", ["वाफ थंड होऊन तिचे थेंब बनतात", "वाफ अधिक गरम होते", "डोंगरावर पाणी पडते", "पाणी मातीत मिसळते"]],
+      ["infer", "बर्फ कोणत्या प्रदेशात पडतो?", ["खूप थंड प्रदेशात", "खूप उष्ण प्रदेशात", "समुद्रकिनारी", "वाळवंटात"]],
+      ["vocab", "'कधीही न संपणारा' या शब्दसमूहासाठी योग्य शब्द कोणता?", ["अखंड", "अल्प", "अचानक", "अपूर्ण"]],
+      ["main", "हा उतारा प्रामुख्याने काय स्पष्ट करतो?", ["जलचक्र", "पाणी कसे वाचवावे", "नद्यांची नावे", "समुद्र खारट का असतो"]],
     ],
   },
   {
-    title: "Grandmother's Garden",
-    text: `Every summer holiday, Neha visited her grandmother in Nashik. Behind the house was a small garden full of tomatoes, chillies, brinjals and a big guava tree. Grandmother woke up at sunrise to water the plants, and Neha soon began to help her. She learned that dried leaves and vegetable peels could be put in a pit to make compost, a natural manure for the soil. Grandmother never used chemical sprays. Instead, she planted marigold flowers between the vegetables to keep some insects away. By the end of the holiday, Neha had planted her own row of spinach. When she went home, she started a small kitchen garden on her balcony.`,
+    title: "गावाचे ग्रंथालय",
+    text: `सोनपूर गावात ग्रंथालय नव्हते, त्यामुळे मुलांना वाचायला फार कमी पुस्तके मिळत. सेवानिवृत्त शिक्षक रमेशराव यांनी यावर उपाय करायचे ठरवले. त्यांनी ग्रामपंचायतीतील एक रिकामी खोली स्वच्छ केली आणि दारावर 'ग्रंथालय – सर्वांसाठी खुले' असा फलक लावला. सुरुवातीला तेथे त्यांची स्वतःची फक्त पन्नास पुस्तके होती. मग त्यांनी वेगवेगळ्या शहरांत राहणाऱ्या आपल्या जुन्या विद्यार्थ्यांना पत्रे लिहिली. दर आठवड्याला पुस्तकांची पार्सले येऊ लागली. लवकरच खोलीत हजाराहून अधिक पुस्तके झाली. शाळा सुटल्यावर मुले रोज संध्याकाळी तेथे येऊ लागली. काही आजी-आजोबाही तेथे वाचायला शिकले. रमेशराव हसून म्हणत, "पुस्तक हा असा मित्र आहे जो कधीच साथ सोडत नाही."`,
     qs: [
-      ["facts", "What is compost made from, according to the passage?", ["Dried leaves and vegetable peels", "Plastic and paper", "Stones and sand", "Chemical sprays"]],
-      ["facts", "Why did Grandmother plant marigolds between the vegetables?", ["To keep some insects away", "To sell them", "To make the garden smell nice", "To feed the cows"]],
-      ["infer", "What can we say about Neha at the end of the story?", ["She enjoyed gardening and wanted to continue it", "She disliked her grandmother's garden", "She never wanted to visit again", "She was afraid of insects"]],
-      ["vocab", "'Natural manure' is something that", ["makes soil rich without chemicals", "kills plants", "is bought in a factory", "makes water salty"]],
-      ["grammar", "Which word is a verb in the past tense?", ["planted", "garden", "small", "natural"]],
+      ["facts", "सोनपूरमध्ये ग्रंथालय कोणी सुरू केले?", ["सेवानिवृत्त शिक्षक रमेशराव यांनी", "सरपंचांनी", "मुलांच्या गटाने", "शहरातील अधिकाऱ्याने"]],
+      ["facts", "सुरुवातीला ग्रंथालयात किती पुस्तके होती?", ["पन्नास", "एक हजार", "पाचशे", "दहा"]],
+      ["infer", "पुस्तकांची पार्सले का येऊ लागली?", ["रमेशरावांनी जुन्या विद्यार्थ्यांना पत्रे लिहिली होती", "सरकारने पाठवली", "मुलांनी विकत घेतली", "दुकानदाराने मोफत दिली"]],
+      ["grammar", "खालीलपैकी विशेष नाम कोणते?", ["सोनपूर", "ग्रंथालय", "शिक्षक", "पुस्तके"]],
+      ["main", "'पुस्तक हा असा मित्र आहे जो कधीच साथ सोडत नाही' — याचा अर्थ काय?", ["पुस्तके आपल्याला नेहमी ज्ञान व आधार देतात", "पुस्तके उसनी देता येत नाहीत", "मित्रांनी पुस्तके वाचावीत", "पुस्तके खूप जड असतात"]],
     ],
   },
   {
-    title: "The Postman's Bicycle",
-    text: `Hari Kaka was the postman of three villages. For thirty years he rode an old bicycle on dusty roads, carrying letters, money orders and parcels. People waited for him eagerly, because a letter could bring news of a wedding, a new job or a newborn baby. Many old people could not read, so Hari Kaka often read the letters aloud to them and even helped them write replies. When mobile phones came, fewer letters were sent, but Hari Kaka's work did not stop. He now delivered bank documents, school books and medicines. On the day he retired, the villagers gave him a new bicycle with a bell that rang loudly, and everyone clapped.`,
+    title: "वाळवंटातील जहाज",
+    text: `उंटाला 'वाळवंटातील जहाज' म्हणतात, कारण तो गरम आणि वाळूच्या वाळवंटातून माणसे व सामान घेऊन लांबचा प्रवास करू शकतो. उंट अनेक दिवस पाणी न पिता राहू शकतो. पाणी मिळाल्यावर तो काही मिनिटांत खूप पाणी पितो. त्याच्या पाठीवरील वशिंडात पाणी नसून चरबी साठवलेली असते. अन्न मिळाले नाही तर ही चरबी त्याला ऊर्जा देते. उंटाच्या पापण्या लांब असतात आणि वाळूचे वादळ आले की तो नाकपुड्या बंद करू शकतो. त्याचे पाय रुंद व गादीसारखे असल्याने ते मऊ वाळूत रुतत नाहीत. राजस्थानात आजही अनेक कुटुंबे शेती आणि वाहतुकीसाठी उंटांचा वापर करतात.`,
     qs: [
-      ["facts", "For how many years did Hari Kaka ride his old bicycle?", ["Thirty years", "Three years", "Ten years", "Fifty years"]],
-      ["facts", "How did Hari Kaka help people who could not read?", ["He read the letters aloud to them", "He gave them books", "He took them to school", "He sent their letters back"]],
-      ["infer", "What does the gift of a new bicycle show?", ["The villagers loved and respected him", "The old bicycle was stolen", "He wanted to become a racer", "The village had too many bicycles"]],
-      ["vocab", "The word 'eagerly' means", ["with great interest", "slowly", "angrily", "sadly"]],
-      ["main", "The passage is mainly about", ["a postman who served his villages faithfully", "how to ride a bicycle", "the history of mobile phones", "a wedding in the village"]],
+      ["facts", "उंटाच्या वशिंडात काय साठवलेले असते?", ["चरबी", "पाणी", "वाळू", "दूध"]],
+      ["facts", "उंटाचे पाय वाळूत का रुतत नाहीत?", ["ते रुंद व गादीसारखे असतात", "ते खूप लहान असतात", "त्यांना धारदार नखे असतात", "ते केसांनी झाकलेले असतात"]],
+      ["infer", "उंटाला 'वाळवंटातील जहाज' का म्हणतात?", ["तो वाळवंटातून माणसे व सामान वाहून नेतो", "तो पाण्यात पोहतो", "तो होडीसारखा दिसतो", "तो समुद्राजवळ राहतो"]],
+      ["vocab", "'ऊर्जा' या शब्दाचा अर्थ —", ["शक्ती", "थकवा", "भूक", "झोप"]],
+      ["grammar", "'नाकपुडी' या शब्दाचे अनेकवचन कोणते?", ["नाकपुड्या", "नाकपुडे", "नाकपुडीं", "नाकपुडा"]],
     ],
   },
+  {
+    title: "हुशार गुराखी",
+    text: `भोला नावाचा एक गुराखी मुलगा दररोज आपल्या शेळ्या चरायला जंगलाजवळ घेऊन जात असे. एका दुपारी आकाशात काळे ढग जमले आणि नदीचा आवाज नेहमीपेक्षा मोठा येऊ लागला. नदीचे पाणी झपाट्याने वाढत आहे आणि गावाकडे जाणारा लहान पूल धोक्यात आहे, हे भोलाच्या लक्षात आले. एकटा घरी पळून जाण्याऐवजी त्याने आपल्या शेळ्या जमवून टेकडीवर नेल्या. मग तो एका उंच झाडावर चढला आणि शेतात काम करणाऱ्या लोकांना सावध करण्यासाठी आपले लाल फडके हलवू लागले. शेतकऱ्यांनी तो इशारा पाहिला आणि पूर येण्यापूर्वीच ते उंच जागी गेले. त्या संध्याकाळी संपूर्ण गावाने भोलाच्या प्रसंगावधानाबद्दल त्याचे आभार मानले.`,
+    qs: [
+      ["facts", "भोलाने शेतकऱ्यांना सावध करण्यासाठी काय वापरले?", ["लाल फडके", "ढोल", "शिट्टी", "पत्र"]],
+      ["facts", "पाणी वाढू लागल्यावर भोलाने शेळ्या कोठे नेल्या?", ["टेकडीवर", "पुलावरून पलीकडे", "जंगलात", "नदीकडे"]],
+      ["vocab", "'प्रसंगावधान' म्हणजे —", ["अडचणीच्या वेळी पटकन योग्य निर्णय घेण्याची क्षमता", "वर्गात हजर असणे", "चांगली स्मरणशक्ती", "खूप घाबरणे"]],
+      ["infer", "भोलाने इशारा दिला नसता तर काय झाले असते?", ["शेतकरी पुरात अडकले असते", "शेतकरी बाजारात गेले असते", "नदी कोरडी पडली असती", "शेळ्या पळून गेल्या असत्या"]],
+      ["main", "या गोष्टीसाठी योग्य शीर्षक कोणते?", ["भोलाने गाव वाचवले", "आळशी शेळी", "जत्रेतील दिवस", "हरवलेले लाल फडके"]],
+    ],
+  },
+  {
+    title: "सूर्यप्रकाशापासून अन्न",
+    text: `प्राण्यांना आपले अन्न शोधावे लागते, पण हिरव्या वनस्पती आपले अन्न स्वतः तयार करतात. वनस्पती मुळांद्वारे जमिनीतील पाणी शोषून घेतात. पानांवरील अतिसूक्ष्म छिद्रांतून त्या हवेतील कार्बन डायऑक्साइड वायू घेतात. पानांतील हिरवे द्रव्य म्हणजे हरितद्रव्य. ते सूर्यप्रकाशाच्या ऊर्जेचा वापर करून पाणी व कार्बन डायऑक्साइडपासून अन्न तयार करते. या क्रियेला प्रकाशसंश्लेषण म्हणतात. अन्न तयार करताना वनस्पती ऑक्सिजन बाहेर सोडतात. हा ऑक्सिजन माणसांना व प्राण्यांना श्वास घेण्यासाठी आवश्यक असतो. म्हणूनच जंगलांना 'पृथ्वीची फुफ्फुसे' म्हणतात.`,
+    qs: [
+      ["facts", "वनस्पती पाणी कोणत्या भागाद्वारे शोषून घेतात?", ["मुळे", "फुले", "पाने", "फळे"]],
+      ["facts", "हरितद्रव्य म्हणजे काय?", ["पानांतील हिरवे द्रव्य", "एक प्रकारची माती", "हवेतील वायू", "मुळांचा प्रकार"]],
+      ["infer", "जंगलांना 'पृथ्वीची फुफ्फुसे' का म्हणतात?", ["ती ऑक्सिजन देतात", "ती खूप मोठी असतात", "तेथे अनेक प्राणी राहतात", "ती नदीजवळ असतात"]],
+      ["vocab", "'अतिसूक्ष्म' या शब्दाचा अर्थ —", ["अगदी लहान, डोळ्यांना सहज न दिसणारे", "खूप मोठे", "खूप जड", "खूप रंगीत"]],
+      ["grammar", "'वनस्पती पाणी शोषून घेतात' — या वाक्यातील कर्ता कोणता?", ["वनस्पती", "पाणी", "शोषून", "घेतात"]],
+    ],
+  },
+  {
+    title: "आजीची बाग",
+    text: `प्रत्येक उन्हाळी सुट्टीत नेहा नाशिकला आपल्या आजीकडे जात असे. घरामागे टोमॅटो, मिरची, वांगी आणि एक मोठे पेरूचे झाड असलेली छोटीशी बाग होती. आजी सूर्योदयाला उठून झाडांना पाणी घालत, आणि लवकरच नेहाही तिला मदत करू लागली. वाळलेली पाने आणि भाज्यांची साले खड्ड्यात टाकून कंपोस्ट खत तयार करता येते, हे तिने शिकले. आजी कधीच रासायनिक फवारे वापरत नसत. त्याऐवजी काही कीटक दूर राहावेत म्हणून त्या भाज्यांच्या मध्ये झेंडूची फुले लावत. सुट्टी संपेपर्यंत नेहाने पालकाची स्वतःची एक रांग लावली होती. घरी परतल्यावर तिने गॅलरीत छोटी परसबाग सुरू केली.`,
+    qs: [
+      ["facts", "उताऱ्यानुसार कंपोस्ट खत कशापासून तयार होते?", ["वाळलेली पाने व भाज्यांची साले", "प्लास्टिक व कागद", "दगड व वाळू", "रासायनिक फवारे"]],
+      ["facts", "आजी भाज्यांच्या मध्ये झेंडू का लावत?", ["काही कीटक दूर राहावेत म्हणून", "फुले विकण्यासाठी", "बाग सुगंधी व्हावी म्हणून", "गायींना खाऊ घालण्यासाठी"]],
+      ["infer", "गोष्टीच्या शेवटी नेहाबद्दल काय म्हणता येईल?", ["तिला बागकामाची आवड लागली", "तिला आजीची बाग आवडली नाही", "ती पुन्हा कधीच आजीकडे जाणार नाही", "तिला कीटकांची भीती वाटते"]],
+      ["vocab", "'सूर्योदय' या शब्दाचा विरुद्धार्थी शब्द कोणता?", ["सूर्यास्त", "सकाळ", "प्रकाश", "दिवस"]],
+      ["grammar", "खालीलपैकी भूतकाळातील क्रियापद कोणते?", ["लावली", "लावते", "लावेल", "लावा"]],
+    ],
+  },
+  {
+    title: "पोस्टमन काका",
+    text: `हरी काका तीन गावांचे पोस्टमन होते. तीस वर्षे ते जुन्या सायकलवरून धुळीच्या रस्त्यांनी पत्रे, मनीऑर्डर आणि पार्सले पोहोचवत. लोक त्यांची आतुरतेने वाट पाहत, कारण एखाद्या पत्रातून लग्नाची, नव्या नोकरीची किंवा बाळाच्या जन्माची बातमी येत असे. अनेक वृद्ध लोकांना वाचता येत नसे. हरी काका त्यांना पत्रे वाचून दाखवत आणि उत्तर लिहायलाही मदत करत. मोबाईल फोन आल्यानंतर पत्रे कमी झाली, पण हरी काकांचे काम थांबले नाही. आता ते बँकेची कागदपत्रे, शाळेची पुस्तके आणि औषधे पोहोचवू लागले. ते निवृत्त झाले त्या दिवशी गावकऱ्यांनी त्यांना मोठ्या आवाजाची घंटी असलेली नवी सायकल भेट दिली आणि सर्वांनी टाळ्या वाजवल्या.`,
+    qs: [
+      ["facts", "हरी काकांनी किती वर्षे जुनी सायकल चालवली?", ["तीस वर्षे", "तीन वर्षे", "दहा वर्षे", "पन्नास वर्षे"]],
+      ["facts", "वाचता न येणाऱ्या लोकांना हरी काका कशी मदत करत?", ["पत्रे वाचून दाखवत", "त्यांना पुस्तके देत", "त्यांना शाळेत नेत", "पत्रे परत पाठवत"]],
+      ["infer", "नवी सायकल भेट देण्यामागे गावकऱ्यांची कोणती भावना दिसते?", ["प्रेम व आदर", "राग", "मत्सर", "भीती"]],
+      ["vocab", "'आतुरतेने' या शब्दाचा अर्थ —", ["उत्सुकतेने", "हळूहळू", "रागाने", "दुःखाने"]],
+      ["main", "हा उतारा मुख्यतः कशाबद्दल आहे?", ["गावांची प्रामाणिकपणे सेवा करणाऱ्या पोस्टमनबद्दल", "सायकल कशी चालवावी याबद्दल", "मोबाईल फोनच्या इतिहासाबद्दल", "गावातील लग्नाबद्दल"]],
+    ],
+  },
+  {
+    title: "रोहित पक्ष्यांचा प्रवास",
+    text: `दरवर्षी हिवाळ्यात मुंबई आणि ठाण्याच्या खाडीत हजारो रोहित पक्षी येतात. या गुलाबी रंगाच्या उंच पक्ष्यांना इंग्रजीत फ्लेमिंगो म्हणतात. ते गुजरातमधील कच्छच्या रणातून व इतर दूरच्या प्रदेशांतून उडत येतात. खाडीतील उथळ पाण्यात मिळणारे शेवाळ आणि लहान जीव हे त्यांचे अन्न आहे. रोहित पक्षी आपली वाकडी चोच उलटी करून पाण्यात बुडवतात आणि अन्न गाळून खातात. त्यांचा गुलाबी रंग त्यांच्या अन्नातील एका घटकामुळे येतो. उन्हाळा सुरू झाला की ते परत जातात. खाडीतील पाणी स्वच्छ राहिले तरच हे सुंदर पाहुणे दरवर्षी येत राहतील.`,
+    qs: [
+      ["facts", "रोहित पक्षी मुंबई-ठाण्याच्या खाडीत कोणत्या ऋतूत येतात?", ["हिवाळ्यात", "उन्हाळ्यात", "पावसाळ्यात", "वसंतात"]],
+      ["facts", "रोहित पक्ष्यांचे अन्न कोणते?", ["शेवाळ व लहान जीव", "धान्य", "फळे", "मोठे मासे"]],
+      ["infer", "उताऱ्यात रोहित पक्ष्यांना 'पाहुणे' का म्हटले आहे?", ["ते काही काळासाठी दुरून येतात आणि परत जातात", "ते लोकांच्या घरी राहतात", "त्यांना कोणी बोलावले आहे", "ते मुंबईतच जन्मतात"]],
+      ["vocab", "'उथळ' या शब्दाचा विरुद्धार्थी शब्द कोणता?", ["खोल", "उंच", "रुंद", "स्वच्छ"]],
+      ["main", "उताऱ्याचा मुख्य संदेश कोणता?", ["खाडी स्वच्छ ठेवल्यास स्थलांतरित पक्षी येत राहतील", "पक्षी पाळणे चांगले", "गुलाबी रंग सर्वांत सुंदर", "हिवाळ्यात प्रवास करू नये"]],
+    ],
+  },
+  {
+    title: "शाळेची सौरऊर्जा",
+    text: `आमच्या जिल्हा परिषद शाळेत वीज वारंवार जात असे. त्यामुळे संगणक वर्ग बंद पडे आणि उन्हाळ्यात पंखेही चालत नसत. मुख्याध्यापकांनी ग्रामपंचायतीच्या मदतीने शाळेच्या छतावर सौर पॅनेल बसवले. सूर्यप्रकाशापासून वीज तयार होऊन ती बॅटरीत साठवली जाते. आता वीज गेली तरी संगणक वर्ग सुरू राहतो. विजेचे बिलही खूप कमी झाले आहे. वाचलेल्या पैशांतून शाळेने ग्रंथालयासाठी नवी पुस्तके घेतली. सौरऊर्जा कधीही संपत नाही आणि तिच्यामुळे प्रदूषणही होत नाही, असे विज्ञानाच्या तासाला गुरुजींनी समजावून सांगितले.`,
+    qs: [
+      ["facts", "सौर पॅनेल शाळेत कोठे बसवले?", ["छतावर", "मैदानात", "वर्गाच्या भिंतीवर", "ग्रंथालयात"]],
+      ["facts", "वाचलेल्या पैशांतून शाळेने काय घेतले?", ["ग्रंथालयासाठी नवी पुस्तके", "नवे पंखे", "खेळाचे साहित्य", "नवीन संगणक"]],
+      ["infer", "सौरऊर्जेचा वापर पर्यावरणासाठी चांगला का आहे?", ["तिच्यामुळे प्रदूषण होत नाही", "ती खूप महाग आहे", "ती फक्त रात्री मिळते", "ती पाण्यापासून तयार होते"]],
+      ["vocab", "'वारंवार' या शब्दाचा अर्थ —", ["पुन्हा पुन्हा", "कधीच नाही", "हळूहळू", "एकदाच"]],
+      ["grammar", "'सौर पॅनेल बसवले' यातील 'बसवले' हा शब्द कोणत्या शब्दजातीत येतो?", ["क्रियापद", "नाम", "विशेषण", "सर्वनाम"]],
+    ],
+  },
+  {
+    title: "सार्वजनिक गणेशोत्सव",
+    text: `लोकमान्य बाळ गंगाधर टिळक यांनी १८९३ मध्ये पुण्यात सार्वजनिक गणेशोत्सवाला सुरुवात केली. त्यापूर्वी गणपती मुख्यतः घरोघरी बसवला जात असे. सर्व लोकांनी एकत्र यावे, विचारांची देवाणघेवाण करावी आणि त्यांच्यात एकीची भावना वाढावी, हा त्यामागचा हेतू होता. उत्सवाच्या दहा दिवसांत व्याख्याने, नाटके, गाणी आणि स्पर्धा होत. आजही हा उत्सव मोठ्या उत्साहात साजरा होतो. मात्र मोठा आवाज, प्लास्टिकची सजावट आणि नदीत मूर्ती विसर्जन केल्याने प्रदूषण होते. म्हणून अनेक मंडळे आता शाडूच्या मातीच्या मूर्ती आणि कृत्रिम तलावात विसर्जन यांचा पर्याय निवडतात.`,
+    qs: [
+      ["facts", "सार्वजनिक गणेशोत्सव कोणी सुरू केला?", ["लोकमान्य टिळक", "महात्मा गांधी", "संत तुकाराम", "सावित्रीबाई फुले"]],
+      ["facts", "सार्वजनिक गणेशोत्सवाची सुरुवात कोणत्या वर्षी झाली?", ["१८९३", "१९४७", "१८४८", "१९५०"]],
+      ["main", "सार्वजनिक गणेशोत्सव सुरू करण्यामागचा मुख्य हेतू कोणता?", ["लोकांमध्ये एकी निर्माण करणे", "मूर्ती विकणे", "सुट्टी मिळवणे", "नदी स्वच्छ करणे"]],
+      ["infer", "मंडळे शाडूच्या मूर्ती का निवडतात?", ["पाण्याचे प्रदूषण कमी व्हावे म्हणून", "त्या जास्त रंगीत असतात", "त्या खूप जड असतात", "त्या लवकर तयार होतात"]],
+      ["vocab", "'देवाणघेवाण' म्हणजे —", ["एकमेकांना देणे आणि घेणे", "भांडण", "खरेदी", "विसरणे"]],
+    ],
+  },
+  {
+    title: "स्वराज्याची राजधानी",
+    text: `सह्याद्रीच्या डोंगररांगांत उभा असलेला रायगड किल्ला मराठ्यांच्या इतिहासात फार महत्त्वाचा आहे. छत्रपती शिवाजी महाराजांनी रायगडला स्वराज्याची राजधानी केले. १६७४ मध्ये याच किल्ल्यावर त्यांचा राज्याभिषेक झाला. किल्ल्यावर जाण्यासाठी आजही अनेक पायऱ्या चढाव्या लागतात, पण आता रोपवेचीही सोय आहे. किल्ल्यावर राजसदर, बाजारपेठेचे अवशेष, गंगासागर तलाव आणि महाराजांची समाधी पाहायला मिळते. या किल्ल्याचे दगड आपल्याला शौर्य आणि स्वाभिमानाची आठवण करून देतात. किल्ल्यांवर फिरायला जाताना कचरा न करणे आणि भिंतींवर काहीही न लिहिणे हे आपले कर्तव्य आहे.`,
+    qs: [
+      ["facts", "शिवाजी महाराजांचा राज्याभिषेक कोणत्या वर्षी झाला?", ["१६७४", "१६३०", "१७०७", "१८१८"]],
+      ["facts", "रायगड किल्ला कोणत्या डोंगररांगांत आहे?", ["सह्याद्री", "सातपुडा", "हिमालय", "अरवली"]],
+      ["infer", "किल्ल्यांवर कचरा का करू नये?", ["ते आपल्या इतिहासाचा ठेवा असल्याने ते जपले पाहिजेत", "तेथे कचरापेटी नसते", "कचरा उचलायला कोणी नसते", "पर्यटकांना दंड होतो म्हणून फक्त"]],
+      ["vocab", "'अवशेष' या शब्दाचा अर्थ —", ["जुन्या वास्तूचे उरलेले भाग", "नवीन इमारत", "मोठा बाजार", "सुंदर बाग"]],
+      ["grammar", "'शौर्य' हे कोणत्या प्रकारचे नाम आहे?", ["भाववाचक नाम", "विशेष नाम", "सामान्य नाम", "सर्वनाम"]],
+    ],
+  },
+  {
+    title: "आमचा वृक्षारोपणाचा दिवस",
+    text: `जुलै महिन्यात पहिला पाऊस पडल्यावर आमच्या शाळेत वृक्षारोपणाचा कार्यक्रम झाला. आदल्या दिवशी गुरुजींनी शाळेच्या कुंपणाजवळ खड्डे खणून घेतले होते. प्रत्येक विद्यार्थ्याने घरून एक रोप आणले. कोणी आंबा, कोणी कडुनिंब, तर कोणी चिंचेचे रोप आणले. रोपे लावल्यानंतर प्रत्येक रोपाजवळ लावणाऱ्या मुलाच्या नावाची पाटी लावली. "रोप लावणे सोपे असते, पण ते जगवणे महत्त्वाचे असते," असे मुख्याध्यापक म्हणाले. उन्हाळ्यात आम्ही वर्गानुसार पाळ्या लावून रोपांना पाणी घातले. आज त्यांतील बहुतेक रोपे मोठी झाली आहेत आणि शाळेचे आवार हिरवेगार दिसते.`,
+    qs: [
+      ["facts", "वृक्षारोपणाचा कार्यक्रम कोणत्या महिन्यात झाला?", ["जुलै", "मे", "डिसेंबर", "मार्च"]],
+      ["facts", "प्रत्येक रोपाजवळ काय लावले?", ["लावणाऱ्या मुलाच्या नावाची पाटी", "फुलांची माळ", "दिवा", "झेंडा"]],
+      ["main", "मुख्याध्यापकांच्या बोलण्याचा मुख्य संदेश कोणता?", ["रोप लावल्यानंतर त्याची काळजी घेणे महत्त्वाचे आहे", "फक्त आंब्याची रोपे लावावीत", "रोपे विकत घेऊ नयेत", "पावसाळ्यात शाळा बंद ठेवावी"]],
+      ["vocab", "'हिरवेगार' या शब्दाचा अर्थ —", ["खूप हिरवे", "थोडे पिवळे", "कोरडे", "रंगहीन"]],
+      ["grammar", "'मुख्याध्यापक म्हणाले' — या वाक्यातील क्रियापद कोणते?", ["म्हणाले", "मुख्याध्यापक", "रोप", "महत्त्वाचे"]],
+    ],
+  },
+  {
+    title: "मिठाचा सत्याग्रह",
+    text: `इंग्रजांच्या राजवटीत मिठावर कर लावला होता. मीठ प्रत्येक गरीब माणसाच्या जेवणात लागते, म्हणून हा कर अन्यायकारक होता. याविरुद्ध महात्मा गांधींनी १९३० मध्ये दांडी यात्रा काढली. ते साबरमती आश्रमातून आपल्या अठ्ठ्याहत्तर साथीदारांसह पायी निघाले. वाटेत गावागावांतील हजारो लोक त्यांच्यासोबत सामील झाले. सुमारे चोवीस दिवस चालल्यानंतर ते गुजरातच्या समुद्रकिनाऱ्यावरील दांडी येथे पोहोचले. तेथे त्यांनी समुद्राच्या पाण्यापासून मूठभर मीठ तयार करून कायदा मोडला. या शांततापूर्ण आंदोलनाने संपूर्ण देश जागा झाला आणि स्वातंत्र्यलढ्याला मोठे बळ मिळाले.`,
+    qs: [
+      ["facts", "दांडी यात्रा कोणत्या वर्षी झाली?", ["१९३०", "१९४७", "१८५७", "१९२०"]],
+      ["facts", "गांधीजींची यात्रा कोठून सुरू झाली?", ["साबरमती आश्रम", "मुंबई", "दिल्ली", "पुणे"]],
+      ["infer", "मिठावरील कर अन्यायकारक का होता?", ["मीठ प्रत्येक गरीब माणसाला रोज लागते", "मीठ फक्त श्रीमंत लोक वापरत", "मीठ परदेशातून येत असे", "मीठ खूप स्वस्त होते"]],
+      ["vocab", "'शांततापूर्ण' या शब्दाचा अर्थ —", ["हिंसा न करता केलेले", "खूप गोंगाटाचे", "लपून केलेले", "रागाने केलेले"]],
+      ["main", "या उताऱ्याला योग्य शीर्षक कोणते?", ["मूठभर मिठाची ताकद", "समुद्रकिनारी सहल", "गुजरातची शेती", "मिठाचा व्यापार"]],
+    ],
+  },
+  {
+    title: "आकाशातील सप्तरंगी कमान",
+    text: `पाऊस पडून गेल्यावर कधी कधी आकाशात सात रंगांची सुंदर कमान दिसते. तिला इंद्रधनुष्य म्हणतात. सूर्यप्रकाश पांढरा दिसत असला तरी तो सात रंगांनी बनलेला असतो. हवेत तरंगणाऱ्या पावसाच्या बारीक थेंबांतून सूर्यप्रकाश जाताना तो वाकतो आणि त्याचे सात रंग वेगळे होतात. तांबडा, नारिंगी, पिवळा, हिरवा, निळा, पारवा आणि जांभळा असे हे रंग असतात. इंद्रधनुष्य पाहण्यासाठी सूर्य आपल्या पाठीमागे आणि पावसाचे थेंब आपल्या समोर असावे लागतात. म्हणूनच सकाळी ते पश्चिमेकडे, तर संध्याकाळी पूर्वेकडे दिसते. काचेच्या लोलकातून प्रकाश सोडूनही आपण हे रंग पाहू शकतो.`,
+    qs: [
+      ["facts", "इंद्रधनुष्यात किती रंग असतात?", ["सात", "पाच", "तीन", "दहा"]],
+      ["facts", "सूर्यप्रकाशाचे रंग कशामुळे वेगळे होतात?", ["पावसाच्या थेंबांतून जाताना प्रकाश वाकल्यामुळे", "ढगांच्या गडगडाटामुळे", "वाऱ्यामुळे", "चंद्रप्रकाशामुळे"]],
+      ["infer", "संध्याकाळी इंद्रधनुष्य पूर्वेकडे का दिसते?", ["कारण संध्याकाळी सूर्य पश्चिमेला म्हणजे आपल्या पाठीमागे असतो", "कारण पूर्वेला जास्त पाऊस पडतो", "कारण पूर्वेला समुद्र असतो", "कारण संध्याकाळी सूर्य पूर्वेला असतो"]],
+      ["vocab", "'तरंगणारे' या शब्दाचा अर्थ —", ["हवेत किंवा पाण्यावर हलके राहणारे", "जमिनीवर पडलेले", "जळणारे", "खूप जड"]],
+      ["grammar", "'सुंदर कमान' या शब्दसमूहातील विशेषण कोणते?", ["सुंदर", "कमान", "आकाश", "पाऊस"]],
+    ],
+  },
+  {
+    title: "मुंग्यांची एकी",
+    text: `एका बागेत मुंग्यांचे एक मोठे वारूळ होते. एके दिवशी एका मुलाच्या हातातून साखरेचा मोठा खडा खाली पडला. एका मुंगीने तो पाहिला, पण तो तिला एकटीला उचलता आला नाही. ती लगेच वारुळात परत गेली आणि आपल्या मैत्रिणींना घेऊन आली. शेकडो मुंग्यांनी मिळून तो खडा थोडा थोडा ओढत वारुळापर्यंत नेला. वाटेत एक लहान ओहोळ होता. तेव्हा काही मुंग्यांनी एकमेकींना धरून पूल तयार केला आणि बाकीच्या मुंग्या खडा घेऊन पलीकडे गेल्या. संध्याकाळपर्यंत सगळी साखर वारुळात पोहोचली. हे पाहून मुलगा म्हणाला, "एकीत खरंच मोठे बळ असते!"`,
+    qs: [
+      ["facts", "मुलाच्या हातातून काय खाली पडले?", ["साखरेचा खडा", "भाकरीचा तुकडा", "फळ", "पेन्सिल"]],
+      ["facts", "ओहोळ पार करण्यासाठी मुंग्यांनी काय केले?", ["एकमेकींना धरून पूल तयार केला", "पानावर बसून पोहल्या", "परत फिरल्या", "खडा तेथेच सोडला"]],
+      ["main", "या गोष्टीचे तात्पर्य कोणते?", ["एकीत बळ असते", "साखर खाऊ नये", "मुंग्या भांडखोर असतात", "बागेत खेळू नये"]],
+      ["vocab", "'वारूळ' म्हणजे —", ["मुंग्यांचे घर", "पक्ष्यांचे घरटे", "मधमाश्यांचे पोळे", "उंदराचे बीळ"]],
+      ["grammar", "'मुंग्या' या शब्दाचे एकवचन कोणते?", ["मुंगी", "मुंगा", "मुंग्यांनी", "मुंगीला"]],
+    ],
+  },
+  {
+    title: "चंद्रावर भारत",
+    text: `भारतीय अंतराळ संशोधन संस्था म्हणजेच इस्रोने १४ जुलै २०२३ रोजी श्रीहरिकोटा येथून चांद्रयान-३ अवकाशात सोडले. सुमारे चाळीस दिवसांच्या प्रवासानंतर २३ ऑगस्ट २०२३ रोजी त्याचे 'विक्रम' लँडर चंद्राच्या दक्षिण ध्रुवाजवळ हळुवारपणे उतरले. चंद्राच्या दक्षिण ध्रुवाजवळ यान उतरवणारा भारत हा जगातील पहिला देश ठरला. विक्रम लँडरमधून 'प्रज्ञान' नावाचे छोटे रोव्हर बाहेर पडले. त्याने चंद्राच्या पृष्ठभागावर फिरून तेथील माती व खडकांची माहिती गोळा केली. या यशाच्या स्मरणार्थ २३ ऑगस्ट हा दिवस 'राष्ट्रीय अंतराळ दिन' म्हणून साजरा केला जातो. या मोहिमेने देशातील अनेक मुलांना विज्ञानाची गोडी लावली.`,
+    qs: [
+      ["facts", "चांद्रयान-३ कोठून अवकाशात सोडले?", ["श्रीहरिकोटा", "मुंबई", "बंगळुरू", "दिल्ली"]],
+      ["facts", "चंद्रावर फिरलेल्या रोव्हरचे नाव काय?", ["प्रज्ञान", "विक्रम", "आर्यभट", "मंगलयान"]],
+      ["infer", "२३ ऑगस्टला 'राष्ट्रीय अंतराळ दिन' का म्हणतात?", ["त्या दिवशी विक्रम लँडर चंद्रावर उतरले", "त्या दिवशी इस्रोची स्थापना झाली", "त्या दिवशी यान अवकाशात सोडले", "त्या दिवशी चंद्रग्रहण झाले"]],
+      ["vocab", "'हळुवारपणे' या शब्दाचा अर्थ —", ["अलगद, धक्का न लागता", "जोराने", "घाईघाईने", "आवाज करत"]],
+      ["main", "उताऱ्याचा मुख्य विषय कोणता?", ["चांद्रयान-३ मोहिमेचे यश", "चंद्रग्रहण", "पृथ्वीवरील खडक", "विमानांचा प्रवास"]],
+    ],
+  },
+  {
+    title: "दिवाळीतील किल्ला",
+    text: `दिवाळीच्या सुट्टीत आमच्या गल्लीतील सगळी मुले मिळून मातीचा किल्ला बांधतात. यंदा आम्ही प्रतापगडाची प्रतिकृती बनवायचे ठरवले. आधी दगड, विटा आणि माती जमवली. दगडांचा ढिगारा रचून त्यावर ओल्या मातीचा थर दिला. मग बुरूज, तटबंदी, दरवाजे आणि पायऱ्या तयार केल्या. किल्ल्याभोवती मोहरी आणि हळीव पेरले, त्यामुळे चार-पाच दिवसांत हिरवेगार गवत उगवल्यासारखे दिसू लागले. किल्ल्यावर मावळ्यांची चित्रे आणि भगवा झेंडा लावला. किल्ला बांधताना आम्ही इतिहास शिकलो आणि एकत्र काम करण्याचा आनंदही घेतला.`,
+    qs: [
+      ["facts", "यंदा मुलांनी कोणत्या किल्ल्याची प्रतिकृती बनवली?", ["प्रतापगड", "रायगड", "सिंहगड", "शिवनेरी"]],
+      ["facts", "किल्ल्याभोवती हिरवळ येण्यासाठी काय पेरले?", ["मोहरी आणि हळीव", "गहू आणि तांदूळ", "फुलांच्या बिया", "गवताचे बी"]],
+      ["infer", "किल्ला बांधण्यातून मुलांना कोणता फायदा झाला?", ["इतिहास समजला आणि सहकार्य शिकले", "खूप पैसे मिळाले", "शाळेला सुट्टी मिळाली", "नवीन खेळणी मिळाली"]],
+      ["vocab", "'प्रतिकृती' म्हणजे —", ["मूळ वस्तूसारखी लहान नक्कल", "खरा किल्ला", "जुना फोटो", "नकाशा"]],
+      ["grammar", "'आम्ही इतिहास शिकलो' — या वाक्यातील सर्वनाम कोणते?", ["आम्ही", "इतिहास", "शिकलो", "किल्ला"]],
+    ],
+  },
+  {
+    title: "राज्यघटनेचे शिल्पकार",
+    text: `डॉ. बाबासाहेब आंबेडकर यांचा जन्म १४ एप्रिल १८९१ रोजी मध्य प्रदेशातील महू येथे झाला. लहानपणी त्यांना अस्पृश्यतेमुळे शाळेत अनेक अपमान सहन करावे लागले. तरीही त्यांनी जिद्दीने अभ्यास केला. पुढे ते उच्च शिक्षणासाठी अमेरिकेतील कोलंबिया विद्यापीठात आणि इंग्लंडमध्ये गेले. भारत स्वतंत्र झाल्यानंतर राज्यघटना तयार करणाऱ्या मसुदा समितीचे ते अध्यक्ष होते. म्हणूनच त्यांना भारतीय राज्यघटनेचे शिल्पकार म्हणतात. "शिका, संघटित व्हा आणि संघर्ष करा" हा त्यांचा संदेश आजही प्रेरणा देतो. त्यांचा जन्मदिवस दरवर्षी मोठ्या उत्साहात साजरा केला जातो.`,
+    qs: [
+      ["facts", "डॉ. आंबेडकर यांचा जन्म कोठे झाला?", ["महू", "मुंबई", "नागपूर", "पुणे"]],
+      ["facts", "राज्यघटनेच्या कोणत्या समितीचे ते अध्यक्ष होते?", ["मसुदा समिती", "शिक्षण समिती", "क्रीडा समिती", "अर्थ समिती"]],
+      ["infer", "'जिद्दीने अभ्यास केला' यावरून बाबासाहेबांचा कोणता गुण दिसतो?", ["चिकाटी", "आळस", "भीती", "उतावळेपणा"]],
+      ["vocab", "'शिल्पकार' या शब्दाचा उताऱ्यातील अर्थ —", ["घडवणारा, रचना करणारा", "मूर्ती विकणारा", "चित्र काढणारा", "गाणे गाणारा"]],
+      ["main", "बाबासाहेबांच्या संदेशात कोणत्या तीन गोष्टी सांगितल्या आहेत?", ["शिका, संघटित व्हा, संघर्ष करा", "खेळा, गा, नाचा", "खा, प्या, झोपा", "धावा, पोहा, चढा"]],
+    ],
+  },
+  {
+    title: "सकस आहार",
+    text: `आपले शरीर निरोगी व बळकट ठेवण्यासाठी आपल्याला सकस आहाराची गरज असते. भाकरी, पोळी व भात यांतून आपल्याला ऊर्जा मिळते. डाळी, कडधान्ये, दूध आणि अंडी यांतून मिळणारी प्रथिने शरीराची वाढ करतात. हिरव्या पालेभाज्या व फळांतून जीवनसत्त्वे आणि क्षार मिळतात, ते आपल्याला आजारांपासून वाचवतात. दिवसभरात पुरेसे पाणी पिणेही आवश्यक आहे. तळलेले पदार्थ, जास्त साखर असलेली पेये आणि बाहेरचे उघडे पदार्थ यांपासून दूर राहावे. जेवणापूर्वी साबणाने हात धुणे ही चांगली सवय आहे. सकस आहार, व्यायाम आणि पुरेशी झोप यांमुळे आपण अभ्यासातही चांगली प्रगती करू शकतो.`,
+    qs: [
+      ["facts", "उताऱ्यानुसार शरीराची वाढ कशामुळे होते?", ["प्रथिनांमुळे", "साखरेमुळे", "तळलेल्या पदार्थांमुळे", "थंड पेयांमुळे"]],
+      ["facts", "जीवनसत्त्वे मुख्यतः कशातून मिळतात?", ["पालेभाज्या व फळे", "बिस्किटे", "चहा", "तळलेले पदार्थ"]],
+      ["infer", "जेवणापूर्वी हात का धुवावेत?", ["जंतू पोटात जाऊ नयेत म्हणून", "हात सुंदर दिसावेत म्हणून", "पाणी वाचवण्यासाठी", "वेळ घालवण्यासाठी"]],
+      ["vocab", "'सकस' या शब्दाचा अर्थ —", ["पौष्टिक", "चविष्ट", "महाग", "थंड"]],
+      ["grammar", "'हिरव्या पालेभाज्या' — यातील विशेषण कोणते?", ["हिरव्या", "पालेभाज्या", "फळे", "पाणी"]],
+    ],
+  },
+  {
+    title: "प्रामाणिक रिक्षाचालक",
+    text: `सकाळी शाळेत जाताना मीना आपल्या आईसोबत रिक्षाने बसस्थानकावर गेली. घाईघाईत आईची पर्स रिक्षातच राहिली. त्या पर्समध्ये पैसे, मोबाईल आणि महत्त्वाची कागदपत्रे होती. बसमध्ये बसल्यावर आईच्या लक्षात आले आणि ती खूप घाबरली. इकडे रिक्षाचालक बाळूकाकांना मागच्या सीटवर पर्स दिसली. त्यांनी पर्समधील कागदपत्रांवरचा पत्ता पाहिला आणि संध्याकाळी स्वतः ती पर्स मीनाच्या घरी आणून दिली. आईने त्यांना बक्षीस देऊ केले, पण त्यांनी नम्रपणे नकार दिला. ते म्हणाले, "दुसऱ्याची वस्तू परत करणे हे माझे कर्तव्य आहे." मीनाला त्या दिवशी प्रामाणिकपणाचा खरा अर्थ कळला.`,
+    qs: [
+      ["facts", "आईची पर्स कोठे राहिली?", ["रिक्षात", "बसमध्ये", "शाळेत", "दुकानात"]],
+      ["facts", "बाळूकाकांनी पर्स कोठे पोहोचवली?", ["मीनाच्या घरी", "पोलीस ठाण्यात", "बसस्थानकावर", "शाळेत"]],
+      ["infer", "बाळूकाकांनी बक्षीस का नाकारले?", ["ते प्रामाणिकपणाला आपले कर्तव्य मानत होते", "त्यांना पैसे आवडत नव्हते", "त्यांना घाई होती", "बक्षीस कमी होते"]],
+      ["vocab", "'नम्रपणे' या शब्दाचा अर्थ —", ["आदराने व विनयाने", "रागाने", "मोठ्याने", "घाबरून"]],
+      ["main", "या गोष्टीचे योग्य शीर्षक कोणते?", ["प्रामाणिकपणाचे बक्षीस", "हरवलेली बस", "मीनाची शाळा", "महागडा मोबाईल"]],
+    ],
+  },
+  {
+    title: "पावसाळा आणि आरोग्य",
+    text: `पावसाळ्यात सगळीकडे हिरवळ दिसते, पण याच काळात अनेक आजारही पसरतात. घराभोवती, टायरमध्ये किंवा उघड्या भांड्यांत साचलेल्या स्वच्छ पाण्यात डासांची पैदास होते. डास चावल्याने मलेरिया आणि डेंग्यूसारखे आजार होतात. दूषित पाणी प्यायल्याने जुलाब, कावीळ यांसारखे आजार होऊ शकतात. हे टाळण्यासाठी घराभोवती पाणी साचू देऊ नये. पिण्याचे पाणी उकळून किंवा गाळून प्यावे. झोपताना मच्छरदाणी वापरावी. ताप आल्यास अंगावर काढू नये, तर लगेच डॉक्टरांचा सल्ला घ्यावा. थोडी काळजी घेतली तर पावसाळ्याचा आनंद आपण निरोगी राहून घेऊ शकतो.`,
+    qs: [
+      ["facts", "डासांची पैदास कोठे होते?", ["साचलेल्या पाण्यात", "वाहत्या नदीत", "कोरड्या मातीत", "झाडांच्या पानांवर"]],
+      ["facts", "डास चावल्याने कोणते आजार होतात?", ["मलेरिया व डेंग्यू", "सर्दी व खोकला", "दातदुखी", "डोळे येणे"]],
+      ["infer", "घराभोवती पाणी साचू न देण्याचा मुख्य हेतू कोणता?", ["डासांची पैदास थांबवणे", "पाणी वाचवणे", "झाडांना पाणी देणे", "खेळायला जागा करणे"]],
+      ["vocab", "'दूषित' या शब्दाचा विरुद्धार्थी शब्द कोणता?", ["शुद्ध", "घाण", "खराब", "गढूळ"]],
+      ["grammar", "'ताप' हा शब्द कोणत्या लिंगात आहे?", ["पुल्लिंग", "स्त्रीलिंग", "नपुंसकलिंग", "लिंग नसते"]],
+    ],
+  },
+];
+
+// Reading level of each passage (short narratives are easy; informational texts are hard).
+const PASSAGE_LEVEL = [
+  "easy", "medium", "medium", "medium", "hard", "medium", "hard", "easy", "medium", "hard",
+  "easy", "medium", "easy", "hard", "easy", "easy", "hard", "medium", "hard", "hard",
+  "easy", "hard", "hard", "easy", "hard", "medium", "medium", "medium", "easy", "medium",
 ];
 
 export function buildLanguage(rng) {
@@ -151,21 +356,24 @@ export function buildLanguage(rng) {
   P.forEach((p, pi) => {
     p.qs.forEach(([type, question, opts], qi) => {
       const { options, correct } = arrange(rng, opts[0], opts.slice(1));
-      const key = `lan:${pi}:${qi}`;
+      const key = `lanmr:${pi}:${qi}`;
       out.push({
         id: uuidFrom(key),
         key,
         passage: pi,
         subject: "language",
         topic: LANG_TOPICS[type],
-        difficulty: type === "infer" || type === "main" ? "medium" : type === "grammar" ? "hard" : "easy",
-        text: `Read the passage carefully and answer the question.\n\n"${p.title}"\n${p.text}\n\nQuestion: ${question}`,
+        difficulty: PASSAGE_LEVEL[pi],
+        text: `उतारा काळजीपूर्वक वाचा आणि प्रश्नाचे उत्तर द्या.\n\n"${p.title}"\n${p.text}\n\nप्रश्न: ${question}`,
         options,
         correct,
-        explanation: `The answer is "${opts[0]}". Read the passage again and find the line that supports it.`,
+        explanation: `योग्य उत्तर: "${opts[0]}". उताऱ्यातील संबंधित ओळ पुन्हा वाचा.`,
       });
     });
   });
   return out;
 }
 export const PASSAGE_COUNT = P.length;
+
+/** IDs of the earlier English-medium language questions (removed by the seed). */
+export const OLD_ENGLISH_KEYS = Array.from({ length: 12 }, (_, pi) => Array.from({ length: 5 }, (_, qi) => `lan:${pi}:${qi}`)).flat();

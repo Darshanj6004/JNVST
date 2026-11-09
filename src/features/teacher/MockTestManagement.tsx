@@ -11,13 +11,23 @@ import {
   Plus,
   RefreshCw,
   Square,
+  CalendarCog,
   Trash2,
 } from "lucide-react";
-import { Badge, Button, Card, CardBody, CardHeader, useToast } from "@/ui";
+import { Badge, Button, Card, CardBody, Field, Input, Modal, useToast } from "@/ui";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { PageHeader } from "@/components/PageHeader";
 import { supabase } from "@/lib/supabaseClient";
-import { finalizeExpiredAttempts } from "@/lib/api";
+import { finalizeExpiredAttempts, rpc } from "@/lib/api";
+
+const pad2 = (n: number) => String(n).padStart(2, "0");
+const toLocalParts = (iso: string | null) => {
+  const d = iso ? new Date(iso) : new Date();
+  return {
+    date: `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`,
+    time: `${pad2(d.getHours())}:${pad2(d.getMinutes())}`,
+  };
+};
 import { formatDateTime } from "@/lib/format";
 import { cn } from "@/lib/cn";
 
@@ -29,6 +39,7 @@ type DBTest = {
   total_questions: number;
   total_marks: number;
   scheduled_at: string | null;
+  ends_at: string | null;
   status: "draft" | "scheduled" | "live" | "completed";
   created_at: string;
 };
@@ -50,6 +61,48 @@ export default function MockTestManagement() {
   const [updating, setUpdating] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<DBTest | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [editTarget, setEditTarget] = useState<DBTest | null>(null);
+  const [form, setForm] = useState({ sd: "", st: "", ed: "", et: "" });
+  const [savingSchedule, setSavingSchedule] = useState(false);
+
+  const openSchedule = (t: DBTest) => {
+    const s0 = toLocalParts(t.scheduled_at);
+    const e0 = toLocalParts(
+      t.ends_at ??
+        new Date(new Date(t.scheduled_at ?? Date.now()).getTime() + (t.duration_minutes + 30) * 60000).toISOString(),
+    );
+    setForm({ sd: s0.date, st: s0.time, ed: e0.date, et: e0.time });
+    setEditTarget(t);
+  };
+
+  const saveSchedule = async () => {
+    if (!editTarget) return;
+    const start = new Date(`${form.sd}T${form.st}:00`);
+    const end = new Date(`${form.ed}T${form.et}:00`);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+      toast({ type: "error", title: "Enter a valid date and time" });
+      return;
+    }
+    setSavingSchedule(true);
+    try {
+      await rpc("reschedule_mock_test", {
+        p_test_id: editTarget.id,
+        p_scheduled_at: start.toISOString(),
+        p_ends_at: end.toISOString(),
+      });
+      toast({
+        type: "success",
+        title: "Schedule saved",
+        message: `Opens ${formatDateTime(start.toISOString())}, closes ${formatDateTime(end.toISOString())}.`,
+      });
+      setEditTarget(null);
+      void load();
+    } catch (e) {
+      toast({ type: "error", title: "Could not save schedule", message: (e as Error).message });
+    } finally {
+      setSavingSchedule(false);
+    }
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -86,6 +139,11 @@ export default function MockTestManagement() {
   }, [toast]);
 
   useEffect(() => { load(); }, [load]);
+  // Tests open and close by themselves; keep the list current.
+  useEffect(() => {
+    const t = window.setInterval(() => void load(), 30000);
+    return () => window.clearInterval(t);
+  }, [load]);
 
   const changeStatus = async (test: DBTest, newStatus: "scheduled" | "live" | "completed") => {
     setUpdating(test.id);
@@ -241,6 +299,7 @@ export default function MockTestManagement() {
                         {t.scheduled_at && (
                           <span className="flex items-center gap-1.5">
                             <CalendarClock className="size-3.5" /> {formatDateTime(t.scheduled_at)}
+                            {t.ends_at ? ` → ${formatDateTime(t.ends_at)}` : ""}
                           </span>
                         )}
                         {submCount > 0 && (
@@ -256,6 +315,17 @@ export default function MockTestManagement() {
                     {isUpdating && <Loader2 className="size-4 animate-spin text-brand-400" />}
 
                     {/* Status controls */}
+                    {(t.status === "scheduled" || t.status === "live") && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        leftIcon={<CalendarCog className="size-3.5" />}
+                        disabled={isUpdating}
+                        onClick={() => openSchedule(t)}
+                      >
+                        Schedule
+                      </Button>
+                    )}
                     {t.status === "scheduled" && (
                       <Button
                         size="sm"
@@ -263,7 +333,7 @@ export default function MockTestManagement() {
                         disabled={isUpdating}
                         onClick={() => changeStatus(t, "live")}
                       >
-                        Go live
+                        Go live now
                       </Button>
                     )}
                     {t.status === "live" && (
@@ -308,6 +378,43 @@ export default function MockTestManagement() {
         </div>
       )}
 
+      <Modal
+        open={!!editTarget}
+        onClose={() => setEditTarget(null)}
+        title={`Schedule: ${editTarget?.title ?? ""}`}
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setEditTarget(null)}>
+              Cancel
+            </Button>
+            <Button onClick={() => void saveSchedule()} loading={savingSchedule}>
+              Save schedule
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Start date">
+              <Input type="date" value={form.sd} onChange={(e) => setForm({ ...form, sd: e.target.value })} />
+            </Field>
+            <Field label="Start time">
+              <Input type="time" value={form.st} onChange={(e) => setForm({ ...form, st: e.target.value })} />
+            </Field>
+            <Field label="End date">
+              <Input type="date" value={form.ed} onChange={(e) => setForm({ ...form, ed: e.target.value })} />
+            </Field>
+            <Field label="End time">
+              <Input type="time" value={form.et} onChange={(e) => setForm({ ...form, et: e.target.value })} />
+            </Field>
+          </div>
+          <p className="text-[13px] text-muted">
+            The test opens by itself at the start time and closes at the end time. Each student gets{" "}
+            {editTarget?.duration_minutes ?? 0} minutes, but no one can continue after the end time.
+          </p>
+        </div>
+      </Modal>
+
       <ConfirmDialog
         open={!!deleteTarget}
         onClose={() => setDeleteTarget(null)}
@@ -318,8 +425,8 @@ export default function MockTestManagement() {
         confirmLabel="Yes, delete"
         description={
           <span>
-            This will permanently delete <strong className="text-ink">{deleteTarget?.title}</strong> and all associated
-            question links. Student attempt records will be kept.
+            This will permanently delete <strong className="text-ink">{deleteTarget?.title}</strong>. Tests that
+            students have already taken cannot be deleted, so their results are never lost.
           </span>
         }
       />

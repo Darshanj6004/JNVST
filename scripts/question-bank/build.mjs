@@ -1,9 +1,9 @@
 // Build the JNVST question bank.
-//   node scripts/question-bank/build.mjs
+//   npm run qbank
 // Outputs:
 //   public/qbank/mat/<id>.svg            figures for Mental Ability questions
 //   supabase/seed_question_bank.sql      idempotent seed (run in Supabase SQL editor)
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { makeRng } from "./lib.mjs";
@@ -11,27 +11,32 @@ import { buildMental, MAT_SECTIONS } from "./figures.mjs";
 import { buildArithmetic, ARITH_TOPICS } from "./arithmetic.mjs";
 import { buildLanguage, LANG_TOPICS, PASSAGE_COUNT } from "./language.mjs";
 
-const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const rng = makeRng(20261109);
+const here = dirname(fileURLToPath(import.meta.url));
+const root = join(here, "..", "..");
+const rng = makeRng(20261110);
 
-const mental = buildMental(rng, 12);
-const arith = buildArithmetic(rng, 10);
+const MAT_PER_SECTION = 30; // 10 easy + 10 medium + 10 hard
+const ARI_PER_TOPIC = 30; // 10 easy + 10 medium + 10 hard
+
+const mental = buildMental(rng, MAT_PER_SECTION);
+const arith = buildArithmetic(rng, ARI_PER_TOPIC);
 const lang = buildLanguage(rng);
 
 // ── Model papers (JNVST pattern: 40 MAT + 20 Arithmetic + 20 Language) ──
-const PAPERS = ["Model Paper 1 (JNVST Pattern)", "Model Paper 2 (JNVST Pattern)"];
+const PAPERS = [1, 2, 3, 4, 5].map((n) => `सराव प्रश्नपत्रिका ${"०१२३४५६७८९"[n]} (JNVST नमुना)`);
 for (let p = 0; p < PAPERS.length; p++) {
-  // MAT: 4 questions from each of the 10 sections
   for (const [section] of MAT_SECTIONS) {
     mental.filter((x) => x.topic === section).slice(p * 4, p * 4 + 4).forEach((x) => (x.source = PAPERS[p]));
   }
-  // Arithmetic: 20 questions spread over all topics (topics 1–5 give 2, the rest 1)
+  // 1 question from every arithmetic topic, plus extra from the first topics, to make 20
+  const extra = 20 - ARITH_TOPICS.length;
   ARITH_TOPICS.forEach((t, ti) => {
-    const per = ti < 5 ? 2 : 1;
-    const pool = arith.filter((x) => x.topic === t && !x.source);
-    pool.slice(0, per).forEach((x) => (x.source = PAPERS[p]));
+    const per = ti < extra ? 2 : 1;
+    // pick different difficulty levels across papers
+    const pool = arith.filter((x) => x.topic === t && !x.source).sort((a, b) => (a.difficulty > b.difficulty ? 1 : -1));
+    const start = (p * 3) % Math.max(1, pool.length - per);
+    pool.slice(start, start + per).forEach((x) => (x.source = PAPERS[p]));
   });
-  // Language: 4 passages × 5 questions
   lang.filter((x) => x.passage >= p * 4 && x.passage < p * 4 + 4).forEach((x) => (x.source = PAPERS[p]));
 }
 
@@ -45,14 +50,30 @@ for (const q of all) {
   ids.add(q.id);
   if (q.options.length !== 4 || new Set(q.options).size !== 4) errors.push(`options not 4 distinct: ${q.key}`);
   if (!"ABCD".includes(q.correct)) errors.push(`bad correct: ${q.key}`);
-  if (!q.text || !q.topic || !q.difficulty) errors.push(`missing fields: ${q.key}`);
+  if (!q.text || !q.topic || !["easy", "medium", "hard"].includes(q.difficulty)) errors.push(`missing fields: ${q.key}`);
   for (const s of [q.text, q.explanation, ...q.options]) if (s.includes("$qb$")) errors.push(`dollar quote clash ${q.key}`);
+}
+const texts = new Map();
+for (const q of all) {
+  const sig = q.subject === "mental_ability" ? null : q.text + "|" + [...q.options].sort().join("|");
+  if (sig && texts.has(sig)) errors.push(`duplicate question ${q.key} = ${texts.get(sig)}`);
+  if (sig) texts.set(sig, q.key);
 }
 for (const p of PAPERS) {
   const n = (sub) => all.filter((q) => q.source === p && q.subject === sub).length;
   if (n("mental_ability") !== 40 || n("arithmetic") !== 20 || n("language") !== 20)
     errors.push(`${p}: ${n("mental_ability")}/${n("arithmetic")}/${n("language")}`);
 }
+const topicsBySubject = {
+  mental_ability: MAT_SECTIONS.map(([s]) => s),
+  arithmetic: ARITH_TOPICS,
+  language: Object.values(LANG_TOPICS),
+};
+for (const [sub, names] of Object.entries(topicsBySubject))
+  for (const t of names)
+    for (const lv of ["easy", "medium", "hard"])
+      if (!all.some((q) => q.subject === sub && q.topic === t && q.difficulty === lv))
+        errors.push(`no ${lv} question in ${sub} / ${t}`);
 if (errors.length) {
   console.error(errors.join("\n"));
   process.exit(1);
@@ -67,26 +88,27 @@ for (const q of mental) {
   q.image = `/qbank/mat/${q.id}.svg`;
 }
 
+// IDs created by the first version of the bank (v1), so they can be cleaned up.
+const v1Ids = readFileSync(join(here, "v1-ids.txt"), "utf8").split(/\s+/).filter(Boolean);
+const obsolete = v1Ids.filter((id) => !ids.has(id));
+
 // ── write SQL ──
 const lit = (s) => (s == null ? "null" : `$qb$${s}$qb$`);
-const topicsBySubject = {
-  mental_ability: MAT_SECTIONS.map(([s]) => s),
-  arithmetic: ARITH_TOPICS,
-  language: Object.values(LANG_TOPICS),
-};
 let sql = `-- ================================================================
--- JNVST QUESTION BANK — generated by scripts/question-bank/build.mjs
--- ${all.length} questions: ${mental.length} Mental Ability (10 sections),
--- ${arith.length} Arithmetic (${ARITH_TOPICS.length} topics), ${lang.length} Language (${PASSAGE_COUNT} passages).
--- Includes ${PAPERS.length} full model papers (tagged by Source).
+-- JNVST QUESTION BANK — generated by scripts/question-bank/build.mjs (npm run qbank)
+-- ${all.length} questions, every topic at easy / medium / hard level:
+--   ${mental.length} Mental Ability (10 sections × ${MAT_PER_SECTION}, figure questions)
+--   ${arith.length} Arithmetic (${ARITH_TOPICS.length} topics × ${ARI_PER_TOPIC})
+--   ${lang.length} Language — Marathi (${PASSAGE_COUNT} passages × 5)
+-- All question text is in Marathi.
+-- Includes ${PAPERS.length} full 80-question model papers (tagged by Source).
 -- Run AFTER production_hardening.sql. Safe to run again (updates in place).
 -- Mental Ability figures are served from /qbank/mat/*.svg on the website.
 -- ================================================================
 begin;
 
--- Topics follow the official JNVST syllabus. Remove unused old topics.
-delete from public.topics t
-where not exists (select 1 from public.questions q where q.topic_id = t.id);
+alter table public.questions add column if not exists seed_key text;
+create unique index if not exists idx_questions_seed_key on public.questions(seed_key);
 
 `;
 for (const [code, names] of Object.entries(topicsBySubject)) {
@@ -99,7 +121,7 @@ where s.code = '${code}' and not exists (select 1 from public.topics t where t.s
 }
 sql += `
 create temporary table _qb (
-  id uuid, subject_code text, topic_name text, difficulty text, question_text text,
+  id uuid, seed_key text, subject_code text, topic_name text, difficulty text, question_text text,
   option_a text, option_b text, option_c text, option_d text, correct_option text,
   explanation text, image_url text, source text
 ) on commit drop;
@@ -108,27 +130,49 @@ insert into _qb values
 `;
 sql += all
   .map((q) =>
-    `(${[`'${q.id}'`, `'${q.subject}'`, lit(q.topic), `'${q.difficulty}'`, lit(q.text), ...q.options.map(lit), `'${q.correct}'`, lit(q.explanation), lit(q.image ?? null), lit(q.source ?? null)].join(", ")})`,
+    `(${[`'${q.id}'`, `'${q.key}'`, `'${q.subject}'`, lit(q.topic), `'${q.difficulty}'`, lit(q.text), ...q.options.map(lit), `'${q.correct}'`, lit(q.explanation), lit(q.image ?? null), lit(q.source ?? null)].join(", ")})`,
   )
   .join(",\n");
 sql += `;
 
-insert into public.questions (id, subject_id, topic_id, difficulty, question_text, option_a, option_b, option_c, option_d,
+insert into public.questions (id, seed_key, subject_id, topic_id, difficulty, question_text, option_a, option_b, option_c, option_d,
   correct_option, explanation, image_url, marks, source)
-select b.id, s.id, t.id, b.difficulty, b.question_text, b.option_a, b.option_b, b.option_c, b.option_d,
+select b.id, b.seed_key, s.id, t.id, b.difficulty, b.question_text, b.option_a, b.option_b, b.option_c, b.option_d,
        b.correct_option, b.explanation, b.image_url, 1.25, b.source
 from _qb b
 join public.subjects s on s.code = b.subject_code
 join public.topics t on t.subject_id = s.id and lower(t.name) = lower(b.topic_name)
 on conflict (id) do update set
-  topic_id = excluded.topic_id, difficulty = excluded.difficulty, question_text = excluded.question_text,
-  option_a = excluded.option_a, option_b = excluded.option_b, option_c = excluded.option_c, option_d = excluded.option_d,
-  correct_option = excluded.correct_option, explanation = excluded.explanation, image_url = excluded.image_url,
-  source = excluded.source, updated_at = now();
+  seed_key = excluded.seed_key, topic_id = excluded.topic_id, difficulty = excluded.difficulty,
+  question_text = excluded.question_text, option_a = excluded.option_a, option_b = excluded.option_b,
+  option_c = excluded.option_c, option_d = excluded.option_d, correct_option = excluded.correct_option,
+  explanation = excluded.explanation, image_url = excluded.image_url, source = excluded.source, updated_at = now();
+
+-- Remove generated questions that are no longer part of the bank
+-- (older versions, incl. the earlier English passages), unless students
+-- already answered them or they are used in a mock test.
+create temporary table _obsolete (id uuid) on commit drop;
+insert into _obsolete
+select q.id from public.questions q
+where (q.seed_key is not null and not exists (select 1 from _qb b where b.id = q.id))
+   or q.id in (${obsolete.map((id) => `'${id}'`).join(", ")});
+delete from public.questions q
+using _obsolete o
+where q.id = o.id
+  and not exists (select 1 from public.exam_answers a where a.question_id = q.id)
+  and not exists (select 1 from public.mock_test_questions m where m.question_id = q.id);
+
+-- Topics follow the official JNVST syllabus. Remove topics left without questions.
+delete from public.topics t
+where not exists (select 1 from public.questions q where q.topic_id = t.id);
 
 commit;
 
-select s.name as subject, t.name as topic, count(q.id) as questions
+select s.name as subject, t.name as topic,
+       count(q.id) filter (where q.difficulty = 'easy') as easy,
+       count(q.id) filter (where q.difficulty = 'medium') as medium,
+       count(q.id) filter (where q.difficulty = 'hard') as hard,
+       count(q.id) as total
 from public.topics t join public.subjects s on s.id = t.subject_id
 left join public.questions q on q.topic_id = t.id
 group by s.name, t.name order by s.name, t.name;
@@ -140,4 +184,5 @@ console.log(`questions: ${all.length}`);
 console.log("by subject:", by("subject"));
 console.log("by difficulty:", by("difficulty"));
 console.log("correct letters:", by("correct"));
+console.log(`obsolete v1 ids to clean: ${obsolete.length}`);
 console.log(`sql size: ${(sql.length / 1024).toFixed(0)} KB`);

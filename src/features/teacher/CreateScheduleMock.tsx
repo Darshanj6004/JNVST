@@ -34,6 +34,11 @@ import { cn } from "@/lib/cn";
 import type { PreviousYearPaper } from "@/data/previousYearPapers";
 import { supabase } from "@/lib/supabaseClient";
 import { rpc } from "@/lib/api";
+import { formatDateTime } from "@/lib/format";
+
+const pad2 = (n: number) => String(n).padStart(2, "0");
+const localDate = (d: Date) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+const localTime = (d: Date) => `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
 import { useSubjects } from "@/lib/useSubjects";
 import { useSettings } from "@/lib/useSettings";
 
@@ -335,8 +340,11 @@ export default function CreateScheduleMock() {
   const [step, setStep] = useState<Step>("details");
   const [pattern, setPattern] = useState<Pattern>("JNVST");
   const [title, setTitle] = useState("");
-  const [date, setDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [date, setDate] = useState(() => localDate(new Date()));
   const [time, setTime] = useState("10:00");
+  const [endDate, setEndDate] = useState("");
+  const [endTime, setEndTime] = useState("");
+  const [endTouched, setEndTouched] = useState(false);
   const [duration, setDuration] = useState(120);
   const [durationTouched, setDurationTouched] = useState(false);
   useEffect(() => {
@@ -477,18 +485,51 @@ export default function CreateScheduleMock() {
     [yearFilter, previousYearPapers],
   );
 
+  const effectiveDuration = pattern !== "Manual" ? 120 : duration;
+  // Until the teacher edits it, the end time follows start + duration + 30 min.
+  useEffect(() => {
+    if (endTouched) return;
+    const start = new Date(`${date}T${time}:00`);
+    if (Number.isNaN(start.getTime())) return;
+    const end = new Date(start.getTime() + (effectiveDuration + 30) * 60000);
+    setEndDate(localDate(end));
+    setEndTime(localTime(end));
+  }, [date, time, effectiveDuration, endTouched]);
+  const startAt = new Date(`${date}T${time}:00`);
+  const endAt = new Date(`${endDate}T${endTime}:00`);
+  const windowMin = Math.round((endAt.getTime() - startAt.getTime()) / 60000);
+  const scheduleError =
+    Number.isNaN(startAt.getTime()) || Number.isNaN(endAt.getTime())
+      ? "Enter a valid start and end date/time."
+      : windowMin <= 5
+        ? "The end time must be after the start time."
+        : endAt.getTime() <= Date.now()
+          ? "The end time is already in the past."
+          : null;
+  const scheduleNote =
+    !scheduleError && windowMin < effectiveDuration
+      ? `The window (${windowMin} min) is shorter than the test duration (${effectiveDuration} min); students will get less time.`
+      : !scheduleError && startAt.getTime() <= Date.now()
+        ? "The start time has already passed, so the test will open immediately."
+        : null;
+
   async function handleSchedule() {
     if (selectedIds.size === 0) return;
+    if (scheduleError) {
+      toast({ type: "error", title: "Check the schedule", message: scheduleError });
+      return;
+    }
     setScheduling(true);
 
-    const scheduledAt = new Date(`${date}T${time}:00`).toISOString();
+    const scheduledAt = startAt.toISOString();
     let ok = false;
     try {
       await rpc<string>("create_mock_test", {
         p_title: title.trim() || "Mock Test",
         p_pattern: pattern === "Manual" ? "Manual" : "JNVST",
-        p_duration_minutes: duration,
+        p_duration_minutes: effectiveDuration,
         p_scheduled_at: scheduledAt,
+        p_ends_at: endAt.toISOString(),
         p_question_ids: [...selectedIds],
         p_description: pattern === "PreviousYear" && selectedPaper ? `Based on ${selectedPaper.title}` : null,
       });
@@ -502,7 +543,7 @@ export default function CreateScheduleMock() {
     toast({
       type: "success",
       title: "Mock test scheduled! 🎉",
-      message: `"${title || "Mock Test"}" set for ${date} at ${time} · ${selectedIds.size} questions.`,
+      message: `"${title || "Mock Test"}" opens ${formatDateTime(startAt.toISOString())} and closes ${formatDateTime(endAt.toISOString())}. It starts automatically.`,
     });
     navigate("/teacher/mock-tests");
   }
@@ -586,7 +627,7 @@ export default function CreateScheduleMock() {
               />
             </Field>
             <div className="grid gap-4 sm:grid-cols-3">
-              <Field label="Date">
+              <Field label="Start date">
                 <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
               </Field>
               <Field label="Start time">
@@ -595,19 +636,48 @@ export default function CreateScheduleMock() {
               <Field label="Duration (minutes)">
                 <Input
                   type="number"
-                  value={pattern !== "Manual" ? 120 : duration}
+                  value={effectiveDuration}
                   disabled={pattern !== "Manual"}
                   onChange={(e) => { setDurationTouched(true); setDuration(Number(e.target.value)); }}
                 />
               </Field>
             </div>
-            <Field label="Assign to">
-              <Select defaultValue="all">
-                <option value="all">All students (4th A & 4th B)</option>
-                <option value="a">4th A only</option>
-                <option value="b">4th B only</option>
-              </Select>
-            </Field>
+            <div className="grid gap-4 sm:grid-cols-3">
+              <Field label="End date">
+                <Input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => {
+                    setEndTouched(true);
+                    setEndDate(e.target.value);
+                  }}
+                />
+              </Field>
+              <Field label="End time" hint="test closes">
+                <Input
+                  type="time"
+                  value={endTime}
+                  onChange={(e) => {
+                    setEndTouched(true);
+                    setEndTime(e.target.value);
+                  }}
+                />
+              </Field>
+              <div className="flex items-end">
+                <p className="text-[12px] leading-snug text-muted">
+                  The test <strong className="text-ink">opens automatically</strong> at the start time and{" "}
+                  <strong className="text-ink">closes automatically</strong> at the end time. Unsubmitted papers are
+                  graded when it closes.
+                </p>
+              </div>
+            </div>
+            {(scheduleError || scheduleNote) && (
+              <p
+                className={`rounded-lg px-3 py-2 text-[13px] ${scheduleError ? "bg-red-50 text-red-700" : "bg-amber-50 text-amber-800"}`}
+              >
+                {scheduleError ?? scheduleNote}
+              </p>
+            )}
           </CardBody>
         </Card>
 
@@ -672,7 +742,8 @@ export default function CreateScheduleMock() {
         <div className="flex items-center justify-between rounded-2xl border border-line bg-white p-4">
           <span className="flex items-center gap-2 text-[13px] text-muted">
             <CalendarClock className="size-4 text-brand-500" />
-            {date} at {time}
+            {Number.isNaN(startAt.getTime()) ? "—" : formatDateTime(startAt.toISOString())} →{" "}
+            {Number.isNaN(endAt.getTime()) ? "—" : formatDateTime(endAt.toISOString())}
           </span>
           <Button
             onClick={() => {
@@ -1055,12 +1126,16 @@ export default function CreateScheduleMock() {
                 </Badge>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-muted">Date</span>
-                <span className="font-medium tabular text-ink">{date}</span>
+                <span className="text-muted">Opens</span>
+                <span className="font-medium tabular text-ink">
+                  {Number.isNaN(startAt.getTime()) ? "—" : formatDateTime(startAt.toISOString())}
+                </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-muted">Time</span>
-                <span className="font-medium tabular text-ink">{time}</span>
+                <span className="text-muted">Closes</span>
+                <span className="font-medium tabular text-ink">
+                  {Number.isNaN(endAt.getTime()) ? "—" : formatDateTime(endAt.toISOString())}
+                </span>
               </div>
             </CardBody>
           </Card>

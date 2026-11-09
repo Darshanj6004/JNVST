@@ -4,6 +4,8 @@ import { AlertTriangle, ArrowLeft, Ban, Bookmark, CheckCircle2, Clock, Loader2, 
 import { Button, Card, CardBody, Checkbox } from "@/ui";
 import { PageHeader } from "@/components/PageHeader";
 import { supabase } from "@/lib/supabaseClient";
+import { formatDateTime } from "@/lib/format";
+import { finalizeExpiredAttempts } from "@/lib/api";
 
 type DBTest = {
   id: string;
@@ -13,6 +15,8 @@ type DBTest = {
   total_questions: number;
   total_marks: number;
   status: string;
+  scheduled_at: string | null;
+  ends_at: string | null;
 };
 
 export default function Instructions() {
@@ -23,12 +27,20 @@ export default function Instructions() {
   const [notFound, setNotFound] = useState(false);
   const [agreed, setAgreed] = useState(false);
 
+  // Re-check every 15 s so the Start button unlocks at the scheduled time.
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    const t = window.setInterval(() => setTick((n) => n + 1), 15000);
+    return () => window.clearInterval(t);
+  }, []);
+
   useEffect(() => {
     if (!id) return;
+    if (tick > 0) void finalizeExpiredAttempts();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase as any)
       .from("mock_tests")
-      .select("id, title, pattern, duration_minutes, total_questions, total_marks, status")
+      .select("id, title, pattern, duration_minutes, total_questions, total_marks, status, scheduled_at, ends_at")
       .eq("id", id)
       .single()
       .then(({ data, error }: { data: DBTest | null; error: unknown }) => {
@@ -36,7 +48,7 @@ export default function Instructions() {
         else setTest(data);
         setLoading(false);
       });
-  }, [id]);
+  }, [id, tick]);
 
   if (loading) {
     return (
@@ -124,7 +136,13 @@ export default function Instructions() {
               className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 font-bold shadow-sm"
               rightIcon={<ShieldCheck className="size-4" />}
             >
-              {test.status === "live" ? "Start Examination Now" : "Test is not open yet"}
+              {test.status === "live"
+                ? "Start Examination Now"
+                : test.status === "completed"
+                  ? "This test is closed"
+                  : test.scheduled_at
+                    ? `Opens ${formatDateTime(test.scheduled_at)}`
+                    : "Test is not open yet"}
             </Button>
           </div>
         </CardBody>

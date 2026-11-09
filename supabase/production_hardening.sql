@@ -214,19 +214,53 @@ returns boolean language sql stable security definer set search_path = public as
 $$;
 
 -- ----------------------------------------------------------------
--- 3. MOCK TESTS — atomic creation
+-- 3. MOCK TESTS — atomic creation + automatic schedule
+--    A test opens by itself at scheduled_at and closes at ends_at.
 -- ----------------------------------------------------------------
+alter table public.mock_tests add column if not exists ends_at timestamptz;
+
+-- Open scheduled tests whose start time has come; close tests whose end time has passed.
+create or replace function public.refresh_test_statuses()
+returns void language plpgsql security definer set search_path = public as $$
+declare r record;
+begin
+  for r in
+    update public.mock_tests set status = 'live'
+     where status = 'scheduled' and scheduled_at is not null and scheduled_at <= now()
+       and (ends_at is null or ends_at > now())
+    returning id, title
+  loop
+    insert into public.notifications (title, body, type, target_role)
+    values ('Mock test is now live: ' || r.title,
+            'The test "' || r.title || '" is open now. Start it from Mock Tests.', 'test', 'student');
+  end loop;
+
+  update public.mock_tests set status = 'completed'
+   where status in ('scheduled', 'live') and ends_at is not null and ends_at <= now();
+end;
+$$;
+grant execute on function public.refresh_test_statuses() to authenticated;
+
+-- Old signature (without end time) is replaced.
+drop function if exists public.create_mock_test(text, text, int, timestamptz, uuid[], text);
+
 create or replace function public.create_mock_test(
   p_title text, p_pattern text, p_duration_minutes int, p_scheduled_at timestamptz,
-  p_question_ids uuid[], p_description text default null
+  p_question_ids uuid[], p_description text default null, p_ends_at timestamptz default null
 ) returns uuid language plpgsql security definer set search_path = public as $$
-declare v_id uuid; v_marks numeric; v_count int;
+declare v_id uuid; v_marks numeric; v_count int; v_end timestamptz;
 begin
   if public.my_role() is distinct from 'teacher' then raise exception 'Only teachers can create tests'; end if;
   if coalesce(array_length(p_question_ids, 1), 0) = 0 then raise exception 'Select at least one question'; end if;
   if p_duration_minutes is null or p_duration_minutes < 5 or p_duration_minutes > 300 then
     raise exception 'Duration must be between 5 and 300 minutes';
   end if;
+  if p_scheduled_at is null then raise exception 'Choose the date and time when the test starts'; end if;
+  v_end := coalesce(p_ends_at, p_scheduled_at + make_interval(mins => p_duration_minutes + 30));
+  if v_end <= p_scheduled_at + interval '5 minutes' then
+    raise exception 'The end time must be after the start time';
+  end if;
+  if v_end <= now() then raise exception 'The end time is already in the past'; end if;
 
   select count(*), coalesce(sum(marks), 0) into v_count, v_marks
   from public.questions where id = any(p_question_ids);
@@ -235,10 +269,10 @@ begin
   end if;
 
   insert into public.mock_tests (title, description, pattern, duration_minutes, total_questions,
-    total_marks, scheduled_at, status, created_by)
+    total_marks, scheduled_at, ends_at, status, created_by)
   values (coalesce(nullif(trim(p_title), ''), 'Mock Test'), p_description,
     case when p_pattern = 'Manual' then 'Manual' else 'JNVST' end,
-    p_duration_minutes, v_count, v_marks, p_scheduled_at, 'scheduled', auth.uid())
+    p_duration_minutes, v_count, v_marks, p_scheduled_at, v_end, 'scheduled', auth.uid())
   returning id into v_id;
 
   insert into public.mock_test_questions (mock_test_id, question_id, order_index)
@@ -247,7 +281,32 @@ begin
   group by qid;
 
   update public.questions set used_count = used_count + 1 where id = any(p_question_ids);
+  perform public.refresh_test_statuses();
   return v_id;
+end;
+$$;
+
+-- Change the start / end time of a test that is not completed yet.
+create or replace function public.reschedule_mock_test(p_test_id uuid, p_scheduled_at timestamptz, p_ends_at timestamptz)
+returns void language plpgsql security definer set search_path = public as $$
+declare v_test public.mock_tests; v_has_attempts boolean;
+begin
+  if public.my_role() is distinct from 'teacher' then raise exception 'Only teachers can reschedule tests'; end if;
+  select * into v_test from public.mock_tests where id = p_test_id for update;
+  if v_test.id is null then raise exception 'Test not found'; end if;
+  if v_test.status = 'completed' then raise exception 'This test is already completed'; end if;
+  if p_scheduled_at is null or p_ends_at is null then raise exception 'Enter both start and end time'; end if;
+  if p_ends_at <= p_scheduled_at + interval '5 minutes' then raise exception 'The end time must be after the start time'; end if;
+  if p_ends_at <= now() then raise exception 'The end time is already in the past'; end if;
+  v_has_attempts := exists (select 1 from public.exam_attempts where mock_test_id = p_test_id);
+  if v_has_attempts and p_scheduled_at > now() then
+    raise exception 'Students have already started this test, so the start time cannot be moved to the future. You can still change the end time.';
+  end if;
+  update public.mock_tests
+     set scheduled_at = p_scheduled_at, ends_at = p_ends_at,
+         status = case when p_scheduled_at > now() then 'scheduled' else status end
+   where id = p_test_id;
+  perform public.refresh_test_statuses();
 end;
 $$;
 
@@ -264,10 +323,15 @@ create policy "Teachers can update attempts" on public.exam_attempts
 
 alter table public.exam_attempts add column if not exists auto_submitted boolean not null default false;
 
--- Deadline of an attempt.
+-- Deadline of an attempt: its own duration, but never later than the test's end time.
+create or replace function public._deadline(p_started timestamptz, p_duration int, p_ends timestamptz)
+returns timestamptz language sql immutable as $$
+  select least(p_started + make_interval(mins => p_duration), coalesce(p_ends, 'infinity'::timestamptz));
+$$;
+
 create or replace function public.attempt_deadline(p_attempt_id uuid)
 returns timestamptz language sql stable security definer set search_path = public as $$
-  select ea.started_at + make_interval(mins => mt.duration_minutes)
+  select public._deadline(ea.started_at, mt.duration_minutes, mt.ends_at)
   from public.exam_attempts ea join public.mock_tests mt on mt.id = ea.mock_test_id
   where ea.id = p_attempt_id;
 $$;
@@ -283,7 +347,7 @@ returns boolean language sql stable security definer set search_path = public as
       and ea.student_id = auth.uid()
       and ea.status = 'in_progress'
       and mt.status = 'live'
-      and now() <= ea.started_at + make_interval(mins => mt.duration_minutes) + interval '30 seconds'
+      and now() <= public._deadline(ea.started_at, mt.duration_minutes, mt.ends_at) + interval '30 seconds'
   );
 $$;
 
@@ -342,8 +406,8 @@ end;
 $$;
 revoke execute on function public._grade_attempt(uuid, boolean) from public, anon, authenticated;
 
--- Grade every attempt whose time is up or whose test is closed.
-create or replace function public.finalize_expired_attempts()
+-- Grade attempts whose time is up or whose test is closed (internal).
+create or replace function public._grade_expired_attempts()
 returns int language plpgsql security definer set search_path = public as $$
 declare r record; n int := 0;
 begin
@@ -352,7 +416,7 @@ begin
     join public.mock_tests mt on mt.id = ea.mock_test_id
     where ea.status = 'in_progress'
       and (mt.status = 'completed'
-           or now() > ea.started_at + make_interval(mins => mt.duration_minutes) + interval '30 seconds')
+           or now() > public._deadline(ea.started_at, mt.duration_minutes, mt.ends_at) + interval '30 seconds')
   loop
     perform public._grade_attempt(r.id, true);
     n := n + 1;
@@ -360,14 +424,24 @@ begin
   return n;
 end;
 $$;
+revoke execute on function public._grade_expired_attempts() from public, anon, authenticated;
+
+-- Called by every page: applies the schedule, then grades expired attempts.
+create or replace function public.finalize_expired_attempts()
+returns int language plpgsql security definer set search_path = public as $$
+begin
+  perform public.refresh_test_statuses();
+  return public._grade_expired_attempts();
+end;
+$$;
 grant execute on function public.finalize_expired_attempts() to authenticated;
 
--- When a teacher closes a test, grade open attempts immediately.
+-- When a test closes, grade open attempts immediately.
 create or replace function public.on_mock_test_completed()
 returns trigger language plpgsql security definer set search_path = public as $$
 begin
   if new.status = 'completed' and old.status is distinct from 'completed' then
-    perform public.finalize_expired_attempts();
+    perform public._grade_expired_attempts();
   end if;
   return new;
 end;
@@ -384,16 +458,18 @@ begin
   if public.my_role() is distinct from 'student' then
     raise exception 'Only active student accounts can take tests';
   end if;
+  perform public.finalize_expired_attempts();
+
   select * into v_test from public.mock_tests where id = p_test_id;
   if v_test.id is null then raise exception 'Test not found'; end if;
-
-  perform public.finalize_expired_attempts();
 
   select * into v_att from public.exam_attempts where student_id = auth.uid() and mock_test_id = p_test_id;
 
   if v_att.id is null then
-    if v_test.status <> 'live' then
-      raise exception 'This test is not open right now';
+    if v_test.status in ('scheduled', 'draft') then
+      raise exception 'This test has not started yet';
+    elsif v_test.status = 'completed' then
+      raise exception 'This test is closed';
     end if;
     insert into public.exam_attempts (student_id, mock_test_id, status)
     values (auth.uid(), p_test_id, 'in_progress') returning * into v_att;
@@ -403,7 +479,7 @@ begin
     'attempt_id', v_att.id,
     'status', v_att.status,
     'started_at', v_att.started_at,
-    'deadline', v_att.started_at + make_interval(mins => v_test.duration_minutes),
+    'deadline', public._deadline(v_att.started_at, v_test.duration_minutes, v_test.ends_at),
     'server_now', now(),
     'title', v_test.title,
     'pattern', v_test.pattern,

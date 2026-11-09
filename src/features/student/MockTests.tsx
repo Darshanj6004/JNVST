@@ -17,6 +17,7 @@ type DBMockTest = {
   total_questions: number;
   total_marks: number;
   scheduled_at: string | null;
+  ends_at: string | null;
   status: "draft" | "scheduled" | "live" | "completed";
 };
 
@@ -37,8 +38,8 @@ export default function MockTests() {
   const [attempts, setAttempts] = useState<AttemptMap>({});
   const [loading, setLoading] = useState(true);
 
-  const loadTests = useCallback(async () => {
-    setLoading(true);
+  const loadTests = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     await finalizeExpiredAttempts();
 
     // Load all non-draft tests
@@ -76,6 +77,11 @@ export default function MockTests() {
   }, [user?.id, toast]);
 
   useEffect(() => { loadTests(); }, [loadTests]);
+  // Tests open at their scheduled time: check every 20 seconds.
+  useEffect(() => {
+    const t = window.setInterval(() => void loadTests(true), 20000);
+    return () => window.clearInterval(t);
+  }, [loadTests]);
 
   const tabs: TabItem[] = [
     { id: "all", label: "All", count: tests.length },
@@ -106,7 +112,7 @@ export default function MockTests() {
           <Button
             variant="ghost"
             leftIcon={<RefreshCw className={cn("size-4", loading && "animate-spin")} />}
-            onClick={loadTests}
+            onClick={() => void loadTests()}
             disabled={loading}
           >
             Refresh Tests
@@ -208,7 +214,12 @@ export default function MockTests() {
                         </span>
                         {m.scheduled_at && (
                           <span className="flex items-center gap-1 text-slate-600">
-                            <CalendarClock className="size-3.5 text-slate-400" /> {formatDateTime(m.scheduled_at)}
+                            <CalendarClock className="size-3.5 text-slate-400" />
+                            {m.status === "live" && m.ends_at
+                              ? `Open until ${formatDateTime(m.ends_at)}`
+                              : m.ends_at
+                                ? `${formatDateTime(m.scheduled_at)} – ${formatDateTime(m.ends_at)}`
+                                : formatDateTime(m.scheduled_at)}
                           </span>
                         )}
                       </div>
@@ -244,7 +255,7 @@ export default function MockTests() {
                       </Link>
                     ) : m.status === "scheduled" ? (
                       <Button variant="secondary" disabled size="md">
-                        Scheduled
+                        {m.scheduled_at ? `Opens ${formatDateTime(m.scheduled_at)}` : "Scheduled"}
                       </Button>
                     ) : (
                       <Button variant="secondary" disabled size="md">

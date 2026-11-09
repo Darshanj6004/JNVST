@@ -7,6 +7,10 @@ import { arrange, uuidFrom } from "./lib.mjs";
 const INK = "#1f2937";
 const R2 = (v) => Math.round(v * 10) / 10 + 0; // +0 turns -0 into 0
 
+const DEV = "०१२३४५६७८९";
+const mrn = (v) => String(v).replace(/[0-9]/g, (d) => DEV[d]);
+const SHAPE_MR = { square: "चौरस", circle: "वर्तुळ", triangle: "त्रिकोण", hexagon: "षटकोन", pentagon: "पंचकोन" };
+
 // ── primitives ─────────────────────────────────────────────────────────────
 const poly = (p, closed = true, fill = false, w = 2.5) => ({ t: "poly", p, c: closed, f: fill, w });
 const line = (a, b, w = 2.5) => poly([a, b], false, false, w);
@@ -123,14 +127,14 @@ function primSvg(pr, ox, oy, k = 1) {
 const figSvg = (fig, ox, oy, k = 1) => fig.map((pr) => primSvg(pr, ox, oy, k)).join("");
 const box = (x, y, w, h) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="8" fill="#fff" stroke="#cbd5e1" stroke-width="1.5"/>`;
 const label = (x, y, t, size = 13, weight = 600) =>
-  `<text x="${x}" y="${y}" font-family="Arial, sans-serif" font-size="${size}" font-weight="${weight}" fill="#334155" text-anchor="middle">${t}</text>`;
+  `<text x="${x}" y="${y}" font-family="Arial, Nirmala UI, Noto Sans Devanagari, Mangal, sans-serif" font-size="${size}" font-weight="${weight}" fill="#334155" text-anchor="middle">${t}</text>`;
 const qmark = (x, y) => `<text x="${x}" y="${y + 14}" font-family="Arial" font-size="40" font-weight="700" fill="#94a3b8" text-anchor="middle">?</text>`;
 
 const CELL = 104, GAP = 14;
 /** Answer row: 4 cells labelled A–D. Each item is either a figure or {svg:(cx,cy)=>string}. */
 function answerRow(items, y) {
   const total = 4 * CELL + 3 * GAP, x0 = (600 - total) / 2;
-  let s = label(300, y - 8, "Answer Figures", 13, 700);
+  let s = label(300, y - 8, "उत्तर आकृत्या", 13, 700);
   items.forEach((it, i) => {
     const x = x0 + i * (CELL + GAP);
     s += box(x, y, CELL, CELL);
@@ -143,7 +147,7 @@ function wrap(inner, h) {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 ${h}" width="600" height="${h}"><rect width="600" height="${h}" fill="#ffffff"/>${inner}</svg>`;
 }
 /** Problem row with n cells (some may be "?"), optional separators between cells. */
-function problemRow(items, y, title = "Problem Figures", seps = []) {
+function problemRow(items, y, title = "प्रश्न आकृत्या", seps = []) {
   const n = items.length, total = n * CELL + (n - 1) * GAP + seps.filter(Boolean).length * 10;
   let x = (600 - total) / 2;
   let s = label(300, y - 8, title, 13, 700);
@@ -171,7 +175,9 @@ function q(section, idx, difficulty, text, svg, correctFig, distractorFigs, expl
   if (!opts.skipCheck && !allDistinct(figs)) return null; // caller retries
   const arr = arrange(rng, 0, [1, 2, 3]);
   const ordered = arr.order.map((o) => figs[o.v]);
-  const key = `mat:${section}:${idx}`;
+  // IDs are built from the original English section names so they stay stable
+  // across translations (tests that already use a question keep working).
+  const key = `mat:${keyNames()[section] ?? section}:${idx}`;
   return {
     id: uuidFrom(key),
     key,
@@ -179,7 +185,7 @@ function q(section, idx, difficulty, text, svg, correctFig, distractorFigs, expl
     topic: section,
     difficulty,
     text,
-    options: ["Figure A", "Figure B", "Figure C", "Figure D"],
+    options: ["आकृती A", "आकृती B", "आकृती C", "आकृती D"],
     correct: arr.correct,
     explanation,
     svg: svg(ordered),
@@ -196,10 +202,19 @@ function build(n, fn) {
   return out;
 }
 
+const keyNames = () => ({
+  [S1]: "Odd Man Out", [S2]: "Figure Matching", [S3]: "Pattern Completion", [S4]: "Figure Series Completion",
+  [S5]: "Analogy", [S6]: "Geometrical Figure Completion", [S7]: "Mirror Imaging", [S8]: "Punched Hole Pattern",
+  [S9]: "Space Visualisation", [S10]: "Embedded Figure",
+});
+
+// Every section cycles easy → medium → hard so each topic has all three levels.
+const LV = (i) => ["easy", "medium", "hard"][i % 3];
+
 // ── 1. Odd Man Out ────────────────────────────────────────────────────────
-const S1 = "Odd Man Out";
+const S1 = "विसंगत आकृती (Odd Man Out)";
 function oddManOut(rng, i) {
-  if (i % 3 === 2) {
+  if (LV(i) === "easy") {
     // counting variant: three figures have k lines, one has k+1 (or k-1)
     const k = rng.int(3, 5), odd = rng.pick([k + 1, k - 1]);
     const star = (n) => {
@@ -213,23 +228,24 @@ function oddManOut(rng, i) {
     };
     const shape = rng.pick(["circle", "none"]);
     const wrapS = (f) => (shape === "circle" ? [circ([0, 0], 38), ...f] : f);
-    return q(S1, i, "easy", "Three of the following figures are alike in some way. Which one is different?",
+    return q(S1, i, "easy", "खालील चार आकृत्यांपैकी तीन आकृत्या एका प्रकारे सारख्या आहेत. वेगळी (विसंगत) आकृती कोणती?",
       (o) => wrap(answerRow(o, 30), 30 + CELL + 30),
       wrapS(star(odd)), [wrapS(star(k)), wrapS(star(k)), wrapS(star(k))],
-      `Count the lines that start from the centre: three figures have ${k} each, but the odd figure has ${odd}.`, rng);
+      `मध्यापासून निघणाऱ्या रेषा मोजा: तीन आकृत्यांत प्रत्येकी ${mrn(k)} रेषा आहेत, पण वेगळ्या आकृतीत ${mrn(odd)} रेषा आहेत.`, rng);
   }
-  const g = rng.chance(0.5) ? composite(rng, 3).fig : flagArrow(rng);
+  const g = LV(i) === "medium" ? flagArrow(rng) : composite(rng, 3).fig;
   const angs = rng.sample([0, 90, 180, 270], 4);
-  return q(S1, i, i % 3 === 0 ? "medium" : "hard", "Three of the following figures are alike in some way. Which one is different?",
+  return q(S1, i, LV(i), "खालील चार आकृत्यांपैकी तीन आकृत्या एका प्रकारे सारख्या आहेत. वेगळी (विसंगत) आकृती कोणती?",
     (o) => wrap(answerRow(o, 30), 30 + CELL + 30),
     rot(flipX(g), angs[3]), [rot(g, angs[0]), rot(g, angs[1]), rot(g, angs[2])],
-    "Three figures are the same figure turned to different positions. The odd figure is a mirror image, which cannot be obtained by turning.", rng);
+    "तीन आकृत्या म्हणजे एकच आकृती वेगवेगळ्या दिशांना फिरवलेली आहे. वेगळी आकृती ही तिची आरशातील प्रतिमा आहे; ती फक्त फिरवून मिळत नाही.", rng);
 }
 
 // ── 2. Figure Matching ────────────────────────────────────────────────────
-const S2 = "Figure Matching";
+const S2 = "आकृती जुळवणी (Figure Matching)";
 function figureMatching(rng, i) {
-  const { base, slots, kinds } = composite(rng, 3);
+  const n = { easy: 2, medium: 3, hard: 4 }[LV(i)];
+  const { base, slots, kinds } = composite(rng, n);
   const make = (sl, kd) => {
     const f = [...BASES[base]()];
     sl.forEach((s, j) => f.push(...MARKERS[kd[j]](SLOTS[s])));
@@ -237,23 +253,26 @@ function figureMatching(rng, i) {
   };
   const g = make(slots, kinds);
   const free = [0, 1, 2, 3, 4, 5, 6, 7].filter((s) => !slots.includes(s));
-  const moved = [...slots]; moved[rng.int(0, 2)] = rng.pick(free);
-  const swapped = [...kinds]; const j = rng.int(0, 2);
+  const moved = [...slots];
+  const mi = rng.int(0, n - 1);
+  const adj = (slots[mi] + 1) % 8;
+  moved[mi] = LV(i) === "hard" && free.includes(adj) ? adj : rng.pick(free);
+  const swapped = [...kinds]; const j = rng.int(0, n - 1);
   swapped[j] = rng.pick(Object.keys(MARKERS).filter((k) => !kinds.includes(k)));
-  const d3 = rng.chance(0.5) ? flipX(g) : make([slots[1], slots[0], slots[2]], kinds);
-  return q(S2, i, i % 2 ? "easy" : "medium", "Select the answer figure that is exactly the same as the problem figure.",
-    (o) => standard([g], o, "Problem Figure"),
+  const d3 = rng.chance(0.5) ? flipX(g) : make([slots[1], slots[0], ...slots.slice(2)], kinds);
+  return q(S2, i, LV(i), "प्रश्न आकृतीसारखीच हुबेहूब असलेली उत्तर आकृती निवडा.",
+    (o) => standard([g], o, "प्रश्न आकृती"),
     g, [make(moved, kinds), make(slots, swapped), d3],
-    "Compare each part: only this answer figure has every mark in the same place and of the same kind as the problem figure.", rng);
+    "प्रत्येक भाग तुलना करा: फक्त याच उत्तर आकृतीत सर्व खुणा प्रश्न आकृतीप्रमाणेच त्याच जागी व त्याच प्रकारच्या आहेत.", rng);
 }
 
 // ── 3. Pattern Completion ─────────────────────────────────────────────────
-const S3 = "Pattern Completion";
-function quadrantDesign(rng) {
+const S3 = "नमुना पूर्ण करणे (Pattern Completion)";
+function quadrantDesign(rng, nLines = 2) {
   // design lives in the top-left quadrant [-40,0]x[-40,0]
   for (let t = 0; t < 200; t++) {
     const pts = () => [rng.int(-36, -4), rng.int(-36, -4)];
-    const d = [line(pts(), pts()), line(pts(), pts())];
+    const d = Array.from({ length: nLines }, () => line(pts(), pts()));
     d.push(rng.chance(0.5) ? dot(pts()) : poly((() => { const [x, y] = pts(); return [[x, y - 5], [x + 5, y + 4], [x - 5, y + 4]]; })(), true, true));
     const c = move(d, 20, 20); // centred quadrant
     if (allDistinct([c, flipX(c), flipY(c), flipX(flipY(c))])) return d;
@@ -261,7 +280,7 @@ function quadrantDesign(rng) {
   throw new Error("quadrant");
 }
 function patternCompletion(rng, i) {
-  const d = quadrantDesign(rng);
+  const d = quadrantDesign(rng, { easy: 1, medium: 2, hard: 3 }[LV(i)]);
   const full = [...d, ...flipX(d), ...flipY(d), ...flipX(flipY(d))];
   const missing = rng.int(0, 3); // 0 TL,1 TR,2 BL,3 BR
   const qc = [[-20, -20], [20, -20], [-20, 20], [20, 20]][missing];
@@ -280,16 +299,16 @@ function patternCompletion(rng, i) {
       return s + figSvg(shown, cx, cy, k);
     },
   };
-  return q(S3, i, i % 2 ? "medium" : "hard", "Which answer figure will complete the pattern in the problem figure?",
-    (o) => standard([big], o.map((f) => scale(frame(f), 1.9)), "Problem Figure"),
+  return q(S3, i, LV(i), "प्रश्न आकृतीतील नमुना कोणती उत्तर आकृती पूर्ण करेल?",
+    (o) => standard([big], o.map((f) => scale(frame(f), 1.9)), "प्रश्न आकृती"),
     correct, variants.filter((_, k) => k !== missing),
-    "The pattern is symmetrical: each quarter is the mirror image of the quarter next to it. The missing quarter must mirror its neighbours.", rng);
+    "हा नमुना सममित आहे: प्रत्येक चौथा भाग शेजारच्या भागाची आरशातील प्रतिमा आहे. गहाळ भागही शेजारच्या भागांची प्रतिमा असला पाहिजे.", rng);
 }
 
 // ── 4. Figure Series Completion ──────────────────────────────────────────
-const S4 = "Figure Series Completion";
+const S4 = "आकृती मालिका (Figure Series)";
 function series(rng, i) {
-  if (i % 3 === 2) {
+  if (LV(i) === "easy") {
     // dots increase by one, base alternates
     const n0 = rng.int(1, 2), bases = rng.sample(["square", "circle", "triangle", "hexagon"], 2);
     const fig = (k) => {
@@ -300,45 +319,47 @@ function series(rng, i) {
     };
     const ans = fig(4);
     const wrongBase = (() => { const f = [...BASES[bases[1]]()]; regular(n0 + 4, 16, -90).forEach((p) => f.push(dot(p, 4))); return f; })();
-    return q(S4, i, "easy", "Which answer figure will continue the series of problem figures?",
+    return q(S4, i, "easy", "प्रश्न आकृत्यांची मालिका पुढे कोणती उत्तर आकृती चालू ठेवेल?",
       (o) => standard([fig(0), fig(1), fig(2), fig(3), "?"], o),
       ans, [fig(3), fig(5), wrongBase],
-      `The number of dots increases by one each time and the outer shape alternates between ${bases[0]} and ${bases[1]}.`, rng);
+      `प्रत्येक वेळी ठिपक्यांची संख्या एकने वाढते आणि बाहेरचा आकार ${SHAPE_MR[bases[0]]} व ${SHAPE_MR[bases[1]]} असा आलटून पालटून येतो.`, rng);
   }
-  const g = rng.chance(0.5) ? flagArrow(rng) : composite(rng, 2).fig;
-  const step = rng.pick([45, 90, 135, -45, -90]);
+  const g = LV(i) === "medium" ? flagArrow(rng) : composite(rng, rng.int(2, 3)).fig;
+  const step = LV(i) === "medium" ? rng.pick([90, -90]) : rng.pick([45, 135, -45, -135]);
   const f = (k) => rot(g, k * step);
-  const dir = step > 0 ? "clockwise" : "anticlockwise";
-  return q(S4, i, Math.abs(step) === 90 ? "medium" : "hard", "Which answer figure will continue the series of problem figures?",
+  const dir = step > 0 ? "घड्याळाच्या दिशेने" : "घड्याळाच्या उलट दिशेने";
+  return q(S4, i, LV(i), "प्रश्न आकृत्यांची मालिका पुढे कोणती उत्तर आकृती चालू ठेवेल?",
     (o) => standard([f(0), f(1), f(2), f(3), "?"], o),
     f(4), [f(3), f(5), flipX(f(4))],
-    `The figure turns ${Math.abs(step)}° ${dir} at every step, so the next figure is turned once more.`, rng);
+    `आकृती प्रत्येक टप्प्यावर ${mrn(Math.abs(step))}° ${dir} फिरते; म्हणून पुढची आकृती आणखी एकदा तशीच फिरलेली असेल.`, rng);
 }
 
 // ── 5. Analogy ───────────────────────────────────────────────────────────
-const S5 = "Analogy";
+const S5 = "आकृती संबंध (Analogy)";
 const TRANSFORMS = [
-  ["turned 90° clockwise", (f) => rot(f, 90)],
-  ["turned upside down (180°)", (f) => rot(f, 180)],
-  ["turned 90° anticlockwise", (f) => rot(f, -90)],
-  ["reflected left-to-right", flipX],
-  ["reflected top-to-bottom", flipY],
-  ["turned 45° clockwise", (f) => rot(f, 45)],
+  ["घड्याळाच्या दिशेने ९०° फिरवली आहे", (f) => rot(f, 90)],
+  ["उलटी (१८०°) फिरवली आहे", (f) => rot(f, 180)],
+  ["घड्याळाच्या उलट दिशेने ९०° फिरवली आहे", (f) => rot(f, -90)],
+  ["डावी-उजवी उलट केली आहे (आरशातील प्रतिमा)", flipX],
+  ["वर-खाली उलट केली आहे (पाण्यातील प्रतिमा)", flipY],
+  ["घड्याळाच्या दिशेने ४५° फिरवली आहे", (f) => rot(f, 45)],
 ];
 function analogy(rng, i) {
-  const A = composite(rng, rng.int(2, 3)).fig, C = composite(rng, rng.int(2, 3)).fig;
-  const ti = rng.int(0, TRANSFORMS.length - 1);
+  const lv = LV(i);
+  const A = lv === "easy" ? flagArrow(rng) : composite(rng, lv === "medium" ? 2 : 3).fig;
+  const C = lv === "easy" ? composite(rng, 2).fig : composite(rng, lv === "medium" ? 2 : 3).fig;
+  const ti = rng.pick({ easy: [1, 3, 4], medium: [0, 2], hard: [5, 3, 4, 0] }[lv]);
   const [name, T] = TRANSFORMS[ti];
   // T(A) must not be explainable by another transform (unambiguous)
   if (TRANSFORMS.some(([, t], k) => k !== ti && same(t(A), T(A)))) return null;
   const others = rng.sample(TRANSFORMS.filter((_, k) => k !== ti), 3).map(([, t]) => t(C));
-  return q(S5, i, ti >= 3 ? "hard" : "medium", "Figure (1) is related to figure (2) in a certain way. In the same way, figure (3) is related to which answer figure?",
-    (o) => standard([A, T(A), C, "?"], o, "Problem Figures", ["", "::", ""]),
-    T(C), others, `Figure (2) is figure (1) ${name}. Doing the same to figure (3) gives the answer.`, rng);
+  return q(S5, i, lv, "आकृती (१) व आकृती (२) यांच्यात जसा संबंध आहे, तसाच संबंध आकृती (३) चा कोणत्या उत्तर आकृतीशी आहे?",
+    (o) => standard([A, T(A), C, "?"], o, "प्रश्न आकृत्या", ["", "::", ""]),
+    T(C), others, `आकृती (२) म्हणजे आकृती (१) ${name}. आकृती (३) ला तसेच केल्यावर उत्तर मिळते.`, rng);
 }
 
 // ── 6. Geometrical Figure Completion ─────────────────────────────────────
-const S6 = "Geometrical Figure Completion";
+const S6 = "भौमितिक आकृती पूर्ण करणे (Geometrical Completion)";
 function cutPiece(rng, verts, vi, jags) {
   const V = verts[vi], N = verts[(vi + 1) % verts.length], Pv = verts[(vi - 1 + verts.length) % verts.length];
   const lerp = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
@@ -359,7 +380,7 @@ function centred(pts) {
   return pts.map(([x, y]) => [x - cx, y - cy]);
 }
 function geoCompletion(rng, i) {
-  if (i % 4 === 3) {
+  if (LV(i) === "easy") {
     // circle with a missing sector
     const angs = rng.sample([45, 60, 90, 120, 150], 4), phi = rng.pick([-90, 0, 45, 180]);
     const pt = (a, r = 34) => [R2(r * Math.cos((a * Math.PI) / 180)), R2(r * Math.sin((a * Math.PI) / 180))];
@@ -376,12 +397,12 @@ function geoCompletion(rng, i) {
         return `<path d="M${ox},${oy} L${ox + x1},${oy + y1} A34,34 0 ${360 - angs[0] > 180 ? 1 : 0} 1 ${ox + x2},${oy + y2} Z" fill="#e2e8f0" stroke="${INK}" stroke-width="2.4"/>`;
       },
     };
-    return q(S6, i, "easy", "Which answer figure will complete the circle in the problem figure?",
+    return q(S6, i, "easy", "प्रश्न आकृतीतील वर्तुळ कोणती उत्तर आकृती पूर्ण करेल?",
       (o) => standard([prob], o.map((f) => ({ svg: (cx, cy) => figSvg(f, cx, cy, 1) }))),
       [sector(angs[0])], [[sector(angs[1])], [sector(angs[2])], [sector(angs[3])]],
-      `The missing part is a sector of ${angs[0]}°. Only that piece fits exactly.`, rng);
+      `गहाळ भाग ${mrn(angs[0])}° चा वृत्तखंड आहे. फक्त तोच तुकडा अचूक बसतो.`, rng);
   }
-  const shape = i % 4 === 2 ? "triangle" : "square";
+  const shape = LV(i) === "hard" ? "triangle" : "square";
   const verts = shape === "triangle" ? regular(3, 44, -90) : regular(4, 40, -135);
   const vi = rng.int(0, verts.length - 1);
   const jag = () => [[rng.int(25, 40) / 100, rng.int(-8, 18)], [rng.int(60, 75) / 100, rng.int(-8, 18)]];
@@ -389,15 +410,17 @@ function geoCompletion(rng, i) {
   const fake1 = cutPiece(rng, verts, vi, jag()), fake2 = cutPiece(rng, verts, vi, jag());
   const pc = (p) => [poly(centred(p), true, true)];
   const prob = [{ ...poly(real.rest, true, false), col: INK }];
-  return q(S6, i, shape === "triangle" ? "hard" : "medium", `Which answer figure will complete the ${shape} in the problem figure?`,
+  return q(S6, i, LV(i), `प्रश्न आकृतीतील ${SHAPE_MR[shape]} कोणती उत्तर आकृती पूर्ण करेल?`,
     (o) => standard([prob], o),
     pc(real.piece), [pc(fake1.piece), pc(fake2.piece), flipX(pc(real.piece))],
-    `Match the zig-zag edge: only this piece has exactly the same cut as the gap, in the same position, so it completes the ${shape}.`, rng);
+    `वाकड्या-तिकड्या कडा जुळवा: फक्त याच तुकड्याची कड रिकाम्या जागेशी अचूक जुळते, म्हणून तो ${SHAPE_MR[shape]} पूर्ण करतो.`, rng);
 }
 
 // ── 7. Mirror Imaging ────────────────────────────────────────────────────
-const S7 = "Mirror Imaging";
-const WORDS = ["RJ5F", "B7GK", "N2PZ", "FR46", "J9KL", "S3RQ", "PG72", "LKR8", "Z4JN", "7FGR", "CR5P", "K2LJ"];
+const S7 = "आरशातील प्रतिमा (Mirror Imaging)";
+const WORDS = ["RJ5F", "B7GK", "N2PZ", "FR46", "J9KL", "S3RQ", "PG72", "LKR8", "Z4JN", "7FGR", "CR5P", "K2LJ",
+  "G4RN", "P7JS", "LF29", "QR3K", "7NGB", "ZJ6P", "KR48", "FN7Q"];
+const WORDS3 = ["RJ5", "F4G", "N7K", "B2R", "J3P", "7GL", "K5F", "PR6", "Z9J", "L2N", "G7S", "Q4R"];
 function textFig(str, mode) {
   return {
     t: "path", key: `txt:${str}:${mode}`, p: [],
@@ -408,47 +431,51 @@ function textFig(str, mode) {
   };
 }
 function mirror(rng, i) {
+  const lv = LV(i);
   const water = i % 4 === 3;
   const mirrorLine = water
     ? (cx, cy) => `<line x1="${cx - 48}" y1="${cy + 46}" x2="${cx + 48}" y2="${cy + 46}" stroke="#2563eb" stroke-width="2.5" stroke-dasharray="6 4"/><text x="${cx + 44}" y="${cy + 42}" font-family="Arial" font-size="11" fill="#2563eb" text-anchor="end">M</text>`
     : (cx, cy) => `<line x1="${cx + 47}" y1="${cy - 46}" x2="${cx + 47}" y2="${cy + 46}" stroke="#2563eb" stroke-width="2.5" stroke-dasharray="6 4"/><text x="${cx + 42}" y="${cy - 36}" font-family="Arial" font-size="11" fill="#2563eb" text-anchor="end">M</text>`;
-  const text = water ? "Which answer figure is the water image (reflection in the line M below) of the problem figure?"
-    : "Which answer figure is the mirror image of the problem figure when the mirror is placed along the line M?";
-  if (i % 2 === 0) {
-    const w = WORDS[i % WORDS.length];
+  const text = water ? "प्रश्न आकृतीची पाण्यातील प्रतिमा (खालील रेषा M मधील प्रतिबिंब) कोणती?"
+    : "रेषा M वर आरसा ठेवल्यास प्रश्न आकृतीची आरशातील प्रतिमा कोणती?";
+  if (lv !== "hard") {
+    const w = lv === "easy" ? WORDS3[i % WORDS3.length] : WORDS[i % WORDS.length];
     const modes = water ? ["fy", "id", "fx", "r180"] : ["fx", "id", "fy", "r180"];
     const prob = { svg: (cx, cy) => figSvg([textFig(w, "id")], cx, cy, 0.95) + mirrorLine(cx, cy) };
-    return q(S7, i, "medium", text,
-      (o) => standard([prob], o.map((f) => ({ svg: (cx, cy) => figSvg(f, cx, cy, 0.9) })), "Problem Figure"),
+    return q(S7, i, lv, text,
+      (o) => standard([prob], o.map((f) => ({ svg: (cx, cy) => figSvg(f, cx, cy, 0.9) })), "प्रश्न आकृती"),
       [textFig(w, modes[0])], modes.slice(1).map((m) => [textFig(w, m)]),
       water ? "In a water image, top and bottom are exchanged while left and right stay the same."
         : "In a mirror image, left and right are exchanged while top and bottom stay the same.", rng, { skipCheck: true });
   }
-  const g = rng.chance(0.5) ? flagArrow(rng) : composite(rng, 3).fig;
+  const g = composite(rng, 3).fig;
   const ans = water ? flipY(g) : flipX(g);
   const prob = { svg: (cx, cy) => figSvg(g, cx, cy, 0.85) + mirrorLine(cx, cy) };
   return q(S7, i, "hard", text,
-    (o) => standard([prob], o, "Problem Figure"),
+    (o) => standard([prob], o, "प्रश्न आकृती"),
     ans, [g, water ? flipX(g) : flipY(g), rot(g, 180)],
     water ? "In a water image, top and bottom are exchanged while left and right stay the same."
       : "In a mirror image, left and right are exchanged while top and bottom stay the same.", rng);
 }
 
 // ── 8. Punched Hole Pattern ──────────────────────────────────────────────
-const S8 = "Punched Hole Pattern";
+const S8 = "कागद दुमडणे व छिद्रे (Punched Hole)";
 const FOLDS = {
-  vertical: { region: (x, y) => x < -6 && x > -34 && Math.abs(y) < 30, mirrors: [(p) => [-p[0], p[1]]], wrong: (p) => [p[0], -p[1]], shape: [[-40, -40], [0, -40], [0, 40], [-40, 40]], dash: [[0, -40], [0, 40]], name: "vertically (right half folded over the left half)" },
-  horizontal: { region: (x, y) => y < -6 && y > -34 && Math.abs(x) < 30, mirrors: [(p) => [p[0], -p[1]]], wrong: (p) => [-p[0], p[1]], shape: [[-40, -40], [40, -40], [40, 0], [-40, 0]], dash: [[-40, 0], [40, 0]], name: "horizontally (bottom half folded over the top half)" },
-  diagonal: { region: (x, y) => y < x - 10 && x < 32 && y > -32, mirrors: [(p) => [p[1], p[0]]], wrong: (p) => [-p[1], -p[0]], shape: [[-40, -40], [40, -40], [40, 40]], dash: [[-40, -40], [40, 40]], name: "along the diagonal" },
-  double: { region: (x, y) => x < -8 && y < -8 && x > -32 && y > -32, mirrors: [(p) => [-p[0], p[1]], (p) => [p[0], -p[1]], (p) => [-p[0], -p[1]]], wrong: null, shape: [[-40, -40], [0, -40], [0, 0], [-40, 0]], dash: null, name: "twice (first vertically, then horizontally)" },
+  vertical: { region: (x, y) => x < -6 && x > -34 && Math.abs(y) < 30, mirrors: [(p) => [-p[0], p[1]]], wrong: (p) => [p[0], -p[1]], shape: [[-40, -40], [0, -40], [0, 40], [-40, 40]], dash: [[0, -40], [0, 40]], name: "उभा (उजवा अर्धा भाग डाव्या भागावर)" },
+  horizontal: { region: (x, y) => y < -6 && y > -34 && Math.abs(x) < 30, mirrors: [(p) => [p[0], -p[1]]], wrong: (p) => [-p[0], p[1]], shape: [[-40, -40], [40, -40], [40, 0], [-40, 0]], dash: [[-40, 0], [40, 0]], name: "आडवा (खालचा अर्धा भाग वरच्या भागावर)" },
+  diagonal: { region: (x, y) => y < x - 10 && x < 32 && y > -32, mirrors: [(p) => [p[1], p[0]]], wrong: (p) => [-p[1], -p[0]], shape: [[-40, -40], [40, -40], [40, 40]], dash: [[-40, -40], [40, 40]], name: "कर्णावर" },
+  double: { region: (x, y) => x < -8 && y < -8 && x > -32 && y > -32, mirrors: [(p) => [-p[0], p[1]], (p) => [p[0], -p[1]], (p) => [-p[0], -p[1]]], wrong: null, shape: [[-40, -40], [0, -40], [0, 0], [-40, 0]], dash: null, name: "दोनदा (आधी उभा, मग आडवा)" },
 };
 function holesFig(holes) {
   return [poly([[-40, -40], [40, -40], [40, 40], [-40, 40]], true, false, 2), ...holes.map((h) => circ(h, 5.5, true))];
 }
 function punched(rng, i) {
-  const kind = ["vertical", "horizontal", "diagonal", "double"][i % 4];
+  const lv = LV(i);
+  const kind = lv === "easy" ? rng.pick(["vertical", "horizontal"])
+    : lv === "medium" ? rng.pick(["vertical", "horizontal", "diagonal"])
+      : rng.pick(["double", "diagonal", "double"]);
   const F = FOLDS[kind];
-  const nh = kind === "double" ? 1 : rng.int(1, 2);
+  const nh = lv === "easy" || kind === "double" ? 1 : 2;
   const holes = [];
   for (let t = 0; holes.length < nh && t < 500; t++) {
     const h = [rng.int(-34, 34), rng.int(-34, 34)];
@@ -469,28 +496,29 @@ function punched(rng, i) {
   const problems = kind === "double"
     ? [step1, [poly([[-40, -40], [0, -40], [0, 40], [-40, 40]], true, false, 2), { ...line([-40, 0], [0, 0], 2), dash: true }], folded]
     : [step1, folded];
-  return q(S8, i, kind === "double" ? "hard" : kind === "diagonal" ? "hard" : "medium",
-    `A square sheet of paper is folded ${F.name} along the dotted line(s) and holes are punched as shown. How will the paper look when it is unfolded?`,
-    (o) => standard(problems, o, "Problem Figures", problems.map(() => "→")),
+  return q(S8, i, lv,
+    `एक चौरस कागद तुटक रेषेवर ${F.name} दुमडून दाखवल्याप्रमाणे छिद्र पाडले आहे. कागद उलगडल्यावर तो कसा दिसेल?`,
+    (o) => standard(problems, o, "प्रश्न आकृत्या", problems.map(() => "→")),
     correct, d,
-    `Each hole punched through the folded paper also goes through the layer underneath, so every hole appears again as a mirror image across the fold line${kind === "double" ? "s (4 holes in total)" : ""}.`, rng);
+    `दुमडलेल्या कागदातून पाडलेले छिद्र खालच्या थरातूनही जाते; म्हणून प्रत्येक छिद्र घडीच्या रेषेपलीकडे आरशातील प्रतिमेप्रमाणे पुन्हा दिसते${kind === "double" ? " (एकूण ४ छिद्रे)" : ""}.`, rng);
 }
 
 // ── 9. Space Visualisation ───────────────────────────────────────────────
-const S9 = "Space Visualisation";
+const S9 = "अवकाशीय कल्पना (Space Visualisation)";
 function space(rng, i) {
-  const g = rng.chance(0.4) ? flagArrow(rng) : composite(rng, 3).fig;
-  const r = rng.pick([90, 180, 270]);
+  const lv = LV(i);
+  const g = lv === "hard" ? composite(rng, 3).fig : flagArrow(rng);
+  const r = lv === "easy" ? 180 : rng.pick([90, 270]);
   const mr = rng.sample([0, 90, 180, 270], 3);
-  return q(S9, i, r === 180 ? "medium" : "hard",
-    "The problem figure is turned (rotated) on the paper without lifting it. Which answer figure can be obtained?",
-    (o) => standard([g], o, "Problem Figure"),
+  return q(S9, i, lv,
+    "प्रश्न आकृती कागदावरच (न उचलता) फिरवली आहे. अशा प्रकारे कोणती उत्तर आकृती मिळू शकते?",
+    (o) => standard([g], o, "प्रश्न आकृती"),
     rot(g, r), mr.map((a) => rot(flipX(g), a)),
-    `The correct figure is the problem figure turned ${r}°. The others are mirror images, which can never be obtained by only turning the paper.`, rng);
+    `योग्य उत्तर म्हणजे प्रश्न आकृती ${mrn(r)}° फिरवलेली आहे. इतर आकृत्या आरशातील प्रतिमा आहेत; त्या फक्त फिरवून कधीच मिळत नाहीत.`, rng);
 }
 
 // ── 10. Embedded Figure ──────────────────────────────────────────────────
-const S10 = "Embedded Figure";
+const S10 = "लपलेली आकृती (Embedded Figure)";
 const EMB_SHAPES = [
   [[[-14, -12], [0, -12], [0, 12], [14, 12]], false],
   [[[-12, -14], [-12, 12], [12, 12], [12, 2]], false],
@@ -500,21 +528,28 @@ const EMB_SHAPES = [
   [[[0, -14], [12, -2], [2, 14], [-10, 0]], true],
   [[[-14, 14], [-2, -14], [6, 4], [14, -6]], false],
   [[[-14, -12], [14, -12], [14, -2], [0, -2], [0, 14], [-14, 14]], true],
+  [[[-14, -12], [-4, 12], [14, 0]], false],
+  [[[-12, 14], [0, -14], [14, 6]], false],
+  [[[-14, -14], [14, -6], [-2, 14]], true],
+  [[[-14, 14], [-14, -4], [-2, -14], [14, -14], [6, 4]], false],
 ];
 function embedded(rng, i) {
-  const [pts, closed] = EMB_SHAPES[(i + rng.int(0, 7)) % EMB_SHAPES.length];
+  const lv = LV(i);
+  const pool = EMB_SHAPES.filter(([p]) => (lv === "easy" ? p.length === 3 : lv === "medium" ? p.length === 4 : p.length >= 5));
+  const [pts, closed] = rng.pick(pool);
   let Xf = rot([poly(pts, closed, false)], rng.pick([0, 90, 180, 270]));
   if (rng.chance(0.5)) Xf = flipX(Xf);
   if (!isChiral(Xf)) return null;
   const X = Xf[0].p, shapeN = X.length;
   const extra = (n) => Array.from({ length: n }, () => line([rng.int(-36, 36), rng.int(-36, 36)], [rng.int(-36, 36), rng.int(-36, 36)], 2.5));
-  const place = (f) => { const dx = rng.int(-14, 14), dy = rng.int(-14, 14); return [...move(f, dx, dy), poly(regular(4, 44, -135), true, false, 1.5), ...extra(rng.int(3, 5))]; };
+  const nExtra = { easy: 3, medium: 4, hard: 6 }[lv];
+  const place = (f) => { const dx = rng.int(-14, 14), dy = rng.int(-14, 14); return [...move(f, dx, dy), poly(regular(4, 44, -135), true, false, 1.5), ...extra(nExtra)]; };
   const bent = [poly(X.map((p, k) => (k === 1 ? [p[0] + 10, p[1] + 10] : p)), Xf[0].c, false)];
-  return q(S10, i, shapeN === 4 ? "hard" : "medium",
-    "In which answer figure is the problem figure hidden (embedded) in exactly the same size and position?",
-    (o) => standard([scale(Xf, 1.6)], o, "Problem Figure"),
+  return q(S10, i, lv,
+    "प्रश्न आकृती त्याच आकारात व त्याच दिशेत कोणत्या उत्तर आकृतीत लपलेली आहे?",
+    (o) => standard([scale(Xf, 1.6)], o, "प्रश्न आकृती"),
     place(Xf), [place(flipX(Xf)), place(rot(Xf, 90)), place(bent)],
-    "Look for the problem figure in the same size and orientation; the other answer figures contain a mirrored, turned or changed version.", rng);
+    "प्रश्न आकृती त्याच आकारात व दिशेत शोधा; इतर उत्तर आकृत्यांत ती उलटी, फिरवलेली किंवा बदललेली आहे.", rng);
 }
 
 export const MAT_SECTIONS = [
