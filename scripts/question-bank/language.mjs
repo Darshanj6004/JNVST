@@ -2,6 +2,9 @@
 // in the JNVST pattern: read a passage, answer 5 questions.
 // The FIRST option is always the correct one here; arrange() shuffles them.
 import { arrange, uuidFrom } from "./lib.mjs";
+import { MORE1 } from "./language_more1.mjs";
+import { MORE2 } from "./language_more2.mjs";
+import { MORE3 } from "./language_more3.mjs";
 
 export const LANG_TOPICS = {
   facts: "आकलन: तथ्ये व तपशील",
@@ -353,7 +356,8 @@ const PASSAGE_LEVEL = [
 
 export function buildLanguage(rng) {
   const out = [];
-  P.forEach((p, pi) => {
+  const ALL = [...P.map((p, i) => ({ ...p, level: PASSAGE_LEVEL[i] })), ...MORE1, ...MORE2, ...MORE3];
+  ALL.forEach((p, pi) => {
     p.qs.forEach(([type, question, opts], qi) => {
       const { options, correct } = arrange(rng, opts[0], opts.slice(1));
       const key = `lanmr:${pi}:${qi}`;
@@ -363,7 +367,7 @@ export function buildLanguage(rng) {
         passage: pi,
         subject: "language",
         topic: LANG_TOPICS[type],
-        difficulty: PASSAGE_LEVEL[pi],
+        difficulty: p.level,
         text: `उतारा काळजीपूर्वक वाचा आणि प्रश्नाचे उत्तर द्या.\n\n"${p.title}"\n${p.text}\n\nप्रश्न: ${question}`,
         options,
         correct,
@@ -373,7 +377,7 @@ export function buildLanguage(rng) {
   });
   return out;
 }
-export const PASSAGE_COUNT = P.length;
+export const PASSAGE_COUNT = P.length + MORE1.length + MORE2.length + MORE3.length;
 
 /** IDs of the earlier English-medium language questions (removed by the seed). */
 export const OLD_ENGLISH_KEYS = Array.from({ length: 12 }, (_, pi) => Array.from({ length: 5 }, (_, qi) => `lan:${pi}:${qi}`)).flat();

@@ -9,6 +9,7 @@ import { usePagination } from "@/lib/hooks";
 import { formatDate } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import { supabase } from "@/lib/supabaseClient";
+import { fetchAll } from "@/lib/api";
 
 const difficultyTone = { easy: "success", medium: "warning", hard: "danger" } as const;
 
@@ -49,13 +50,10 @@ export default function QuestionBank() {
 
   const loadQuestions = useCallback(async () => {
     setLoadingData(true);
-    const { data, error } = await supabase
-      .from("questions_view" as never)
-      .select("*")
-      .order("updated_at", { ascending: false });
+    const { data, error } = await fetchAll<DBQuestion>("questions_view", "*", { column: "updated_at", ascending: false });
 
     if (error) {
-      toast({ type: "error", title: "Failed to load questions", message: error.message });
+      toast({ type: "error", title: "Failed to load questions", message: error });
     } else {
       setQuestions((data as DBQuestion[]) ?? []);
     }

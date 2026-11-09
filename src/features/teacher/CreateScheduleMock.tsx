@@ -33,7 +33,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { cn } from "@/lib/cn";
 import type { PreviousYearPaper } from "@/data/previousYearPapers";
 import { supabase } from "@/lib/supabaseClient";
-import { rpc } from "@/lib/api";
+import { fetchAll, rpc } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
 
 const pad2 = (n: number) => String(n).padStart(2, "0");
@@ -360,11 +360,8 @@ export default function CreateScheduleMock() {
 
   const loadQuestions = useCallback(async () => {
     setLoadingQ(true);
-    const { data } = await supabase
-      .from("questions_view" as never)
-      .select("*")
-      .order("updated_at", { ascending: false });
-    setDbQuestions((data as DBQuestion[]) ?? []);
+    const { data } = await fetchAll<DBQuestion>("questions_view", "*", { column: "updated_at", ascending: false });
+    setDbQuestions(data);
     setLoadingQ(false);
   }, []);
 

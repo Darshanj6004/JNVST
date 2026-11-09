@@ -152,6 +152,19 @@ const gens = {
   ],
   factors: [
     (r) => {
+      const n = r.pick([12, 16, 18, 20, 24, 28, 30, 32, 36, 40, 42, 45, 48, 54, 56, 60, 63, 64, 72, 80, 84, 90, 96]);
+      const fs = [...Array(n).keys()].map((x) => x + 1).filter((x) => n % x === 0 && x > 1 && x < n);
+      const non = [...Array(n).keys()].map((x) => x + 1).filter((x) => n % x !== 0 && x > 1);
+      if (fs.length < 3 || non.length < 1) return null;
+      const ans = r.pick(non), f3 = r.sample(fs, 3);
+      return mk(r, T.factors, "medium", `खालीलपैकी कोणती संख्या ${n} चा अवयव नाही?`, String(ans), f3.map(String), `${n} ÷ ${ans} ला बाकी उरते; बाकीच्या संख्या ${n} च्या अवयव आहेत.`, String);
+    },
+    (r) => {
+      const a = r.pick([12, 18, 24, 30, 36, 42, 48]), b = r.pick([16, 20, 28, 32, 40, 45, 54, 60]);
+      const common = [...Array(Math.min(a, b)).keys()].map((x) => x + 1).filter((x) => a % x === 0 && b % x === 0);
+      return mk(r, T.factors, "medium", `${a} आणि ${b} यांचे एकूण किती सामाईक अवयव आहेत?`, common.length, [common.length + 1, common.length - 1, common.length + 2], `सामाईक अवयव: ${common.join(", ")} — एकूण ${common.length}.`);
+    },
+    (r) => {
       const n = r.int(6, 13), k = r.int(8, 15);
       return mk(r, T.factors, "easy", `${n} चा ${k} वा पट कोणता?`, n * k, [n * (k - 1), n * (k + 1), n + k], `${n} × ${k} = ${n * k}.`);
     },
@@ -270,6 +283,15 @@ const gens = {
     },
   ],
   convert: [
+    (r) => {
+      const n = r.int(1, 9), d = r.pick([10, 100]);
+      const v = n / d;
+      return mk(r, T.convert, "easy", `${n}/${d} हा अपूर्णांक दशांशात लिहा.`, String(v), [String(d === 10 ? n / 100 : n / 10), String(n), String(+(v * 10 + v).toFixed(3))], `${n}/${d} = ${v}.`, String);
+    },
+    (r) => {
+      const n = r.int(11, 99);
+      return mk(r, T.convert, "easy", `${n / 100} हा दशांश अपूर्णांक साध्या अपूर्णांकात (छेद १००) कसा लिहाल?`, `${n}/100`, [`${n}/10`, `${n}/1000`, `${n + 1}/100`], `${n / 100} = ${n}/१००.`, String);
+    },
     (r) => {
       const [n, d] = r.pick([[1, 4], [3, 4], [1, 5], [2, 5], [3, 8], [7, 20], [9, 25], [1, 8], [3, 5], [11, 20]]);
       const v = n / d;
@@ -401,6 +423,11 @@ const gens = {
     },
   ],
   si: [
+    (r) => {
+      const P = r.pick([100, 200, 300, 400, 500, 600, 800, 1000]), R = r.pick([2, 3, 4, 5, 10]), Tt = r.int(1, 3);
+      const si = (P * R * Tt) / 100; if (!Number.isInteger(si)) return null;
+      return mk(r, T.si, "easy", `मुद्दल ${rs(P)}, दर ${R}% व मुदत ${Tt} वर्षे असल्यास सरळव्याज किती?`, si, [P + si, si * 2, R * Tt], `सरळव्याज = ${P} × ${R} × ${Tt} / १०० = ${si}.`, rs);
+    },
     (r) => {
       const P = r.pick([100, 200, 500, 1000]), R = r.pick([5, 8, 10, 12]);
       return mk(r, T.si, "easy", `${rs(P)} चे द.सा.द.शे. ${R} दराने १ वर्षाचे सरळव्याज किती?`, (P * R) / 100, [P + (P * R) / 100, R, (P * R) / 10], `सरळव्याज = ${P} × ${R} × १ / १०० = ${(P * R) / 100}.`, rs);

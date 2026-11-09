@@ -109,3 +109,28 @@ export interface TestSummary {
   max_pct: number | null;
   min_pct: number | null;
 }
+
+/**
+ * Load every row of a table/view. Supabase returns at most 1000 rows per
+ * request, so this pages through the results with .range().
+ */
+export async function fetchAll<T>(
+  table: string,
+  select = "*",
+  order: { column: string; ascending?: boolean } = { column: "id" },
+): Promise<{ data: T[]; error: string | null }> {
+  const PAGE = 1000;
+  const out: T[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await db
+      .from(table)
+      .select(select)
+      .order(order.column, { ascending: order.ascending ?? true })
+      .order("id", { ascending: true })
+      .range(from, from + PAGE - 1);
+    if (error) return { data: out, error: friendlyError(error.message) };
+    out.push(...((data ?? []) as T[]));
+    if (!data || data.length < PAGE) break;
+  }
+  return { data: out, error: null };
+}

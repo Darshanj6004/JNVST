@@ -103,12 +103,24 @@ function composite(rng, nMarkers = 3, bases = Object.keys(BASES)) {
 
 /** Arrow with a one-sided flag: clearly chiral, easy to read when rotated. */
 function flagArrow(rng) {
-  const variant = rng.int(0, 2);
-  const fig = [line([0, 30], [0, -30]), poly([[-9, -19], [0, -30], [9, -19]], false)];
-  if (variant === 0) fig.push(poly([[0, 30], [14, 22], [0, 14]], true, true));
-  if (variant === 1) fig.push(line([0, 10], [14, 10]), dot([14, 10], 3.5));
-  if (variant === 2) fig.push(poly([[0, 0], [12, -6], [12, 6]], true, false), dot([-10, 24], 4));
-  return fig;
+  // Arrow + one flag on one side + optional second mark: many clearly chiral designs.
+  for (let t = 0; t < 100; t++) {
+    const fig = [line([0, 30], [0, -30]), poly([[-9, -19], [0, -30], [9, -19]], false)];
+    const y = rng.pick([22, 12, 2, -8]);
+    const side = 1; // flag always on the right of the shaft; rotation/mirroring does the rest
+    const kind = rng.int(0, 4);
+    if (kind === 0) fig.push(poly([[0, y + 8], [14 * side, y], [0, y - 8]], true, true));
+    if (kind === 1) fig.push(poly([[0, y + 7], [13 * side, y], [0, y - 7]], true, false));
+    if (kind === 2) fig.push(line([0, y], [14 * side, y]), dot([14 * side, y], 3.5));
+    if (kind === 3) fig.push(poly([[0, y - 6], [12 * side, y - 6], [12 * side, y + 6], [0, y + 6]], true, true));
+    if (kind === 4) fig.push(line([0, y], [12 * side, y - 9]), line([0, y + 8], [12 * side, y - 1]));
+    if (rng.chance(0.6)) {
+      const mx = rng.pick([-12, 12]), my = rng.pick([-14, 0, 14, 26]);
+      if (Math.abs(my - y) > 9 || mx < 0) fig.push(rng.chance(0.5) ? dot([mx, my], 3.5) : circ([mx, my], 4));
+    }
+    if (isChiral(fig) && noRotSymmetry(fig)) return fig;
+  }
+  throw new Error("flagArrow");
 }
 
 // ── SVG rendering ──────────────────────────────────────────────────────────
@@ -173,6 +185,7 @@ const standard = (problem, answers, problemTitle, seps) =>
 function q(section, idx, difficulty, text, svg, correctFig, distractorFigs, explanation, rng, opts = {}) {
   const figs = [correctFig, ...distractorFigs];
   if (!opts.skipCheck && !allDistinct(figs)) return null; // caller retries
+  const sig = [canon(figs[0]), ...figs.slice(1).map(canon).sort()].join("#");
   const arr = arrange(rng, 0, [1, 2, 3]);
   const ordered = arr.order.map((o) => figs[o.v]);
   // IDs are built from the original English section names so they stay stable
@@ -189,14 +202,21 @@ function q(section, idx, difficulty, text, svg, correctFig, distractorFigs, expl
     correct: arr.correct,
     explanation,
     svg: svg(ordered),
+    sig,
   };
 }
 function build(n, fn) {
   const out = [];
+  const seen = new Set();
   let guard = 0;
-  while (out.length < n && guard++ < n * 60) {
+  while (out.length < n && guard++ < n * 80) {
     const r = fn(out.length);
-    if (r) out.push(r);
+    if (!r) continue;
+    // never repeat a visually identical question (ignoring option order)
+    const sig = r.text + "|" + r.sig;
+    if (seen.has(sig)) continue;
+    seen.add(sig);
+    out.push(r);
   }
   if (out.length < n) throw new Error("could not build enough questions");
   return out;
@@ -310,7 +330,7 @@ const S4 = "आकृती मालिका (Figure Series)";
 function series(rng, i) {
   if (LV(i) === "easy") {
     // dots increase by one, base alternates
-    const n0 = rng.int(1, 2), bases = rng.sample(["square", "circle", "triangle", "hexagon"], 2);
+    const n0 = rng.int(1, 3), bases = rng.sample(["square", "circle", "triangle", "hexagon", "pentagon"], 2);
     const fig = (k) => {
       const f = [...BASES[bases[k % 2]]()];
       const pos = regular(Math.max(n0 + k, 1), n0 + k === 1 ? 0 : 16, -90);
@@ -382,10 +402,10 @@ function centred(pts) {
 function geoCompletion(rng, i) {
   if (LV(i) === "easy") {
     // circle with a missing sector
-    const angs = rng.sample([45, 60, 90, 120, 150], 4), phi = rng.pick([-90, 0, 45, 180]);
+    const angs = rng.sample([30, 45, 60, 90, 120, 150, 180], 4), phi = rng.pick([-90, 0, 45, 90, 135, 180]);
     const pt = (a, r = 34) => [R2(r * Math.cos((a * Math.PI) / 180)), R2(r * Math.sin((a * Math.PI) / 180))];
     const sector = (a) => ({
-      t: "path", key: `sector${a}`, p: [],
+      t: "path", key: `sector${a}@${phi}`, p: [],
       svg: (ox, oy, k) => {
         const [x1, y1] = pt(phi), [x2, y2] = pt(phi + a);
         return `<path d="M${ox},${oy} L${ox + x1 * k},${oy + y1 * k} A${34 * k},${34 * k} 0 ${a > 180 ? 1 : 0} 1 ${ox + x2 * k},${oy + y2 * k} Z" fill="#e2e8f0" stroke="${INK}" stroke-width="2.4"/>`;
@@ -418,9 +438,20 @@ function geoCompletion(rng, i) {
 
 // ── 7. Mirror Imaging ────────────────────────────────────────────────────
 const S7 = "आरशातील प्रतिमा (Mirror Imaging)";
-const WORDS = ["RJ5F", "B7GK", "N2PZ", "FR46", "J9KL", "S3RQ", "PG72", "LKR8", "Z4JN", "7FGR", "CR5P", "K2LJ",
-  "G4RN", "P7JS", "LF29", "QR3K", "7NGB", "ZJ6P", "KR48", "FN7Q"];
-const WORDS3 = ["RJ5", "F4G", "N7K", "B2R", "J3P", "7GL", "K5F", "PR6", "Z9J", "L2N", "G7S", "Q4R"];
+// Strings built only from letters/digits that look different when mirrored or flipped.
+const ASYM = "BCDEFGJKLNPQRSZ2345679".split("");
+function wordsOf(len, n, seed) {
+  const out = new Set();
+  let x = seed;
+  while (out.size < n) {
+    let w = "";
+    for (let k = 0; k < len; k++) { x = (x * 1103515245 + 12345) % 2147483648; w += ASYM[x % ASYM.length]; }
+    out.add(w);
+  }
+  return [...out];
+}
+const WORDS = wordsOf(4, 120, 7);
+const WORDS3 = wordsOf(3, 120, 11);
 function textFig(str, mode) {
   return {
     t: "path", key: `txt:${str}:${mode}`, p: [],
@@ -439,7 +470,7 @@ function mirror(rng, i) {
   const text = water ? "प्रश्न आकृतीची पाण्यातील प्रतिमा (खालील रेषा M मधील प्रतिबिंब) कोणती?"
     : "रेषा M वर आरसा ठेवल्यास प्रश्न आकृतीची आरशातील प्रतिमा कोणती?";
   if (lv !== "hard") {
-    const w = lv === "easy" ? WORDS3[i % WORDS3.length] : WORDS[i % WORDS.length];
+    const w = lv === "easy" ? rng.pick(WORDS3) : rng.pick(WORDS);
     const modes = water ? ["fy", "id", "fx", "r180"] : ["fx", "id", "fy", "r180"];
     const prob = { svg: (cx, cy) => figSvg([textFig(w, "id")], cx, cy, 0.95) + mirrorLine(cx, cy) };
     return q(S7, i, lv, text,
