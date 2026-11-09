@@ -731,3 +731,102 @@ returns int language sql stable security definer set search_path = public as $$
   where (n.target_role = 'all' or n.target_role = public.my_role() or n.target_student_id = auth.uid())
     and not exists (select 1 from public.notification_reads r where r.notification_id = n.id and r.user_id = auth.uid());
 $$;
+
+-- ----------------------------------------------------------------
+-- 9. Auth users created from SQL must look exactly like users created
+--    by Supabase Auth, otherwise login fails with
+--    "Database error querying schema" (NULL token columns / no identity).
+-- ----------------------------------------------------------------
+create or replace function public._create_auth_user(p_email text, p_password text, p_app_meta jsonb, p_user_meta jsonb)
+returns uuid language plpgsql security definer set search_path = public, extensions as $$
+declare v_id uuid := gen_random_uuid();
+begin
+  insert into auth.users (
+    instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
+    raw_app_meta_data, raw_user_meta_data, created_at, updated_at,
+    confirmation_token, recovery_token, email_change_token_new, email_change
+  ) values (
+    '00000000-0000-0000-0000-000000000000', v_id, 'authenticated', 'authenticated', lower(p_email),
+    crypt(p_password, gen_salt('bf', 10)), now(),
+    coalesce(p_app_meta, '{}'::jsonb) || '{"provider":"email","providers":["email"]}'::jsonb,
+    coalesce(p_user_meta, '{}'::jsonb), now(), now(), '', '', '', ''
+  );
+  insert into auth.identities (id, provider_id, user_id, identity_data, provider, last_sign_in_at, created_at, updated_at)
+  values (gen_random_uuid(), v_id::text, v_id,
+          jsonb_build_object('sub', v_id::text, 'email', lower(p_email), 'email_verified', true),
+          'email', now(), now(), now());
+  return v_id;
+end;
+$$;
+revoke execute on function public._create_auth_user(text, text, jsonb, jsonb) from public, anon, authenticated;
+
+create or replace function public.create_student(
+  p_full_name text, p_username text, p_roll_number text, p_class_name text, p_password text,
+  p_avatar_color text default '#2563EB'
+) returns uuid language plpgsql security definer set search_path = public as $$
+declare
+  v_id uuid;
+  v_username text := lower(trim(p_username));
+  v_email text := v_username || '@navodayaprep.edu';
+begin
+  if public.my_role() is distinct from 'teacher' then
+    raise exception 'Only teachers can create student accounts';
+  end if;
+  if v_username !~ '^[a-z0-9._-]{3,30}$' then
+    raise exception 'Username must be 3-30 characters: letters, numbers, dot, dash or underscore';
+  end if;
+  if length(coalesce(p_password, '')) < 6 then
+    raise exception 'Password must be at least 6 characters';
+  end if;
+  if exists (select 1 from auth.users where email = v_email)
+     or exists (select 1 from public.profiles where lower(username) = v_username) then
+    raise exception 'Username already taken: %', p_username;
+  end if;
+  if exists (select 1 from public.profiles where roll_number = trim(p_roll_number)) then
+    raise exception 'Roll number already in use: %', p_roll_number;
+  end if;
+
+  v_id := public._create_auth_user(v_email, p_password, '{}'::jsonb,
+    jsonb_build_object('full_name', p_full_name, 'username', v_username, 'roll_number', trim(p_roll_number),
+                       'class_name', p_class_name, 'avatar_color', p_avatar_color));
+
+  insert into public.profiles (id, role, full_name, username, roll_number, class_name, avatar_color, status)
+  values (v_id, 'student', trim(p_full_name), v_username, trim(p_roll_number), p_class_name, p_avatar_color, 'active')
+  on conflict (id) do update set full_name = excluded.full_name, username = excluded.username,
+    roll_number = excluded.roll_number, class_name = excluded.class_name, avatar_color = excluded.avatar_color;
+  return v_id;
+end;
+$$;
+
+-- Repair any existing SQL-created users so they can log in.
+update auth.users set
+  confirmation_token = coalesce(confirmation_token, ''),
+  recovery_token = coalesce(recovery_token, ''),
+  email_change_token_new = coalesce(email_change_token_new, ''),
+  email_change = coalesce(email_change, '')
+where confirmation_token is null or recovery_token is null
+   or email_change_token_new is null or email_change is null;
+
+insert into auth.identities (id, provider_id, user_id, identity_data, provider, last_sign_in_at, created_at, updated_at)
+select gen_random_uuid(), u.id::text, u.id,
+       jsonb_build_object('sub', u.id::text, 'email', u.email, 'email_verified', true),
+       'email', now(), now(), now()
+from auth.users u
+where not exists (select 1 from auth.identities i where i.user_id = u.id);
+
+create or replace function public.reset_student_password(p_student_id uuid, p_new_password text)
+returns void language plpgsql security definer set search_path = public, extensions as $$
+begin
+  if public.my_role() is distinct from 'teacher' then
+    raise exception 'Only teachers can reset student passwords';
+  end if;
+  if length(coalesce(p_new_password, '')) < 6 then
+    raise exception 'Password must be at least 6 characters';
+  end if;
+  if not exists (select 1 from public.profiles where id = p_student_id and role = 'student') then
+    raise exception 'Student not found';
+  end if;
+  update auth.users set encrypted_password = crypt(p_new_password, gen_salt('bf', 10)), updated_at = now()
+  where id = p_student_id;
+end;
+$$;

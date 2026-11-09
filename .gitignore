@@ -18,3 +18,6 @@ logs/
 # beside it.
 /.plugins/
 /.opencode-skills/
+
+# Local-only SQL with real credentials
+supabase/private/

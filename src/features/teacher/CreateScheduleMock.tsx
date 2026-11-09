@@ -244,9 +244,11 @@ function PaperCard({
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-[11px] font-bold tabular text-brand-600 bg-brand-50 px-1.5 py-0.5 rounded-md">
-              {paper.year}
-            </span>
+            {paper.year > 0 && (
+              <span className="text-[11px] font-bold tabular text-brand-600 bg-brand-50 px-1.5 py-0.5 rounded-md">
+                {paper.year}
+              </span>
+            )}
             {paper.tags.map((t) => (
               <Badge key={t} tone={t === "Official" ? "brand" : "neutral"}>
                 {t}
@@ -511,7 +513,7 @@ export default function CreateScheduleMock() {
       <div className="mx-auto max-w-3xl space-y-6">
         <PageHeader
           title="Create & schedule mock test"
-          description="Choose a source — official pattern, a previous year paper, or a fully custom set."
+          description="Choose a source — official pattern, a ready-made paper, or a fully custom set."
         />
 
         {/* Pattern picker */}
@@ -529,8 +531,8 @@ export default function CreateScheduleMock() {
                 {
                   id: "PreviousYear" as Pattern,
                   icon: <Library className="size-5" />,
-                  label: "Previous year paper",
-                  sub: "Load a ready-made official paper",
+                  label: "Ready-made paper",
+                  sub: "Model papers & previous-year papers",
                 },
                 {
                   id: "Manual" as Pattern,
@@ -694,7 +696,7 @@ export default function CreateScheduleMock() {
       <div className="mx-auto max-w-4xl space-y-6">
         <div className="flex items-start justify-between gap-4">
           <PageHeader
-            title="Choose a previous year paper"
+            title="Choose a ready-made paper"
             description="Select a paper to pre-load its questions. You can still add or remove questions in the next step."
           />
           <Button variant="ghost" onClick={() => setStep("details")}>
@@ -724,7 +726,7 @@ export default function CreateScheduleMock() {
         {previousYearPapers.length === 0 && !loadingQ && (
           <Card>
             <CardBody className="py-10 text-center text-sm text-muted">
-              No previous year papers in the bank yet. When adding or importing questions, fill in the{" "}
+              No ready-made papers in the bank yet. When adding or importing questions, fill in the{" "}
               <strong className="text-ink">Source</strong> field (for example <em>JNVST 2024</em>) and the paper
               will appear here.
             </CardBody>

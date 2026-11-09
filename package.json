@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "format": "oxfmt"
+    "format": "oxfmt",
+    "qbank": "node scripts/question-bank/build.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

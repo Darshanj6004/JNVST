@@ -37,14 +37,14 @@ export function QuestionCard({
         </span>
       </div>
 
-      <p className="mt-4 text-[16px] leading-relaxed text-ink font-medium">{question.text}</p>
+      <p className="mt-4 whitespace-pre-line text-[16px] leading-relaxed text-ink font-medium">{question.text}</p>
 
       {question.imageUrl ? (
         <div className="mt-4 overflow-hidden rounded-2xl border border-line bg-slate-50 p-2">
           <img
             src={question.imageUrl}
             alt="Question figure"
-            className="w-full max-h-56 rounded-xl object-contain bg-white"
+            className="w-full max-h-[26rem] rounded-xl object-contain bg-white"
           />
         </div>
       ) : null}

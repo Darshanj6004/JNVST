@@ -318,7 +318,7 @@ export default function Result() {
                     </div>
                     <p className="text-sm font-semibold text-ink whitespace-pre-wrap">{r.question_text}</p>
                     {r.image_url && (
-                      <img src={r.image_url} alt="" className="mt-2 max-h-48 rounded-lg border border-line object-contain" />
+                      <img src={r.image_url} alt="" className="mt-2 w-full max-h-80 rounded-lg border border-line object-contain bg-white" />
                     )}
                     <div className="mt-3 grid gap-2 sm:grid-cols-2">
                       {opts.map(([letter, text]) => {

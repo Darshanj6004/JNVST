@@ -320,13 +320,13 @@ export default function LiveExam() {
             <Card className="rounded-2xl border border-line bg-white shadow-xs">
               <CardBody className="p-6 space-y-6">
                 {/* Question text */}
-                <p className="text-[16px] font-semibold leading-relaxed text-ink">{q.question_text}</p>
+                <p className="whitespace-pre-line text-[16px] font-semibold leading-relaxed text-ink">{q.question_text}</p>
                 {q.image_url && (
                   <div className="overflow-hidden rounded-2xl border border-line bg-slate-50 p-2">
                     <img
                       src={q.image_url}
                       alt="Question figure"
-                      className="w-full max-h-56 rounded-xl border border-line object-contain bg-white"
+                      className="w-full max-h-[26rem] rounded-xl border border-line object-contain bg-white"
                     />
                   </div>
                 )}
