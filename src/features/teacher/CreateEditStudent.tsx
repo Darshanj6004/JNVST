@@ -28,7 +28,7 @@ export default function CreateEditStudent() {
 
   const [name, setName] = useState("");
   const [rollNo, setRollNo] = useState("");
-  const [className, setClassName] = useState("4th A");
+  const [className, setClassName] = useState("5th A");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("Navodaya@123");
   const [avatarColor] = useState(AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)]);
@@ -50,7 +50,7 @@ export default function CreateEditStudent() {
         const s = data as StudentRow;
         setName(s.full_name);
         setRollNo(s.roll_number ?? "");
-        setClassName(s.class_name ?? "4th A");
+        setClassName(s.class_name ?? "5th A");
         setUsername(s.username);
         setLoadingData(false);
       });
@@ -145,8 +145,11 @@ export default function CreateEditStudent() {
             </Field>
             <Field label="Class">
               <Select value={className} onChange={(e) => setClassName(e.target.value)}>
-                <option>4th A</option>
-                <option>4th B</option>
+                {["5th A", "5th B", "5th C", "5th D", className]
+                  .filter((c, i, a) => c && a.indexOf(c) === i)
+                  .map((c) => (
+                    <option key={c}>{c}</option>
+                  ))}
               </Select>
             </Field>
             <Field label="Username" hint="Students use this to log in">

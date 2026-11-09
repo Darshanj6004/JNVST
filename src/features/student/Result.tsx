@@ -5,7 +5,8 @@ import { Badge, Button, Card, CardBody, CardHeader, ProgressBar } from "@/ui";
 import { PageHeader } from "@/components/PageHeader";
 import { ProgressRing } from "@/charts";
 import { pct } from "@/lib/format";
-import { db, rpc, SUBJECT_LABELS, type TopicStat } from "@/lib/api";
+import { db, rpc, SUBJECT_LABELS, SUBJECT_LABELS_MR, type TopicStat } from "@/lib/api";
+import { useLang, useNum, useT } from "@/lib/lang";
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/cn";
 import React from "react";
@@ -44,6 +45,9 @@ type ReviewRow = {
 };
 
 export default function Result() {
+  const t = useT();
+  const num = useNum();
+  const { lang } = useLang();
   const { id } = useParams();
   const location = useLocation();
   const { user } = useAuth();
@@ -91,7 +95,7 @@ export default function Result() {
         const map: Record<string, SectionBreakdown> = {};
         for (const s of stats ?? []) {
           const key = s.subject_code;
-          map[key] ??= { name: SUBJECT_LABELS[key] ?? s.subject_name, correct: 0, total: 0, marks: 0 };
+          map[key] ??= { name: key, correct: 0, total: 0, marks: 0 };
           map[key].correct += s.correct;
           map[key].total += s.total;
           map[key].marks += Number(s.marks_earned);
@@ -124,10 +128,10 @@ export default function Result() {
     return (
       <Card className="mx-auto max-w-lg">
         <CardBody className="py-12 text-center space-y-3">
-          <p className="text-base font-bold text-ink">No result found for this test</p>
-          <p className="text-sm text-muted">You haven't submitted this test yet.</p>
+          <p className="text-base font-bold text-ink">{t("या परीक्षेचा निकाल सापडला नाही", "No result found for this test")}</p>
+          <p className="text-sm text-muted">{t("तुम्ही ही परीक्षा अजून सबमिट केलेली नाही.", "You haven't submitted this test yet.")}</p>
           <Link to="/student/mock-tests">
-            <Button variant="secondary">Back to Mock Tests</Button>
+            <Button variant="secondary">{t("सराव परीक्षांकडे परत", "Back to Mock Tests")}</Button>
           </Link>
         </CardBody>
       </Card>
@@ -145,7 +149,7 @@ export default function Result() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Exam Result & Performance Report"
+        title={t("परीक्षेचा निकाल", "Exam Result & Performance Report")}
         description={title}
         actions={
           <div className="flex flex-wrap items-center gap-2">
@@ -154,11 +158,11 @@ export default function Result() {
               leftIcon={<Download className="size-4" />}
               onClick={() => window.print()}
             >
-              Print / Save PDF
+              {t("प्रिंट / PDF", "Print / Save PDF")}
             </Button>
             <Link to="/student/mock-tests">
               <Button variant="secondary" leftIcon={<Home className="size-4" />}>
-                All Mock Tests
+                {t("सर्व परीक्षा", "All Mock Tests")}
               </Button>
             </Link>
           </div>
@@ -170,18 +174,18 @@ export default function Result() {
         <div>
           <h2 className="text-base font-bold text-brand-900">
             {percentage >= 75
-              ? "Superb Performance! 🎉"
+              ? t("खूप छान कामगिरी! 🎉", "Superb Performance! 🎉")
               : percentage >= 50
-                ? "Good Effort! Keep Pushing Forward 👍"
-                : "Good Practice Attempt! Learn from every mistake 💪"}
+                ? t("चांगला प्रयत्न! असेच पुढे चला 👍", "Good Effort! Keep Pushing Forward 👍")
+                : t("छान प्रयत्न! प्रत्येक चुकीतून शिका 💪", "Good Practice Attempt! Learn from every mistake 💪")}
           </h2>
           <p className="mt-0.5 text-xs text-brand-700">
-            Your answers have been evaluated according to official JNVST scoring rules (1.25 marks per question).
+            {t("प्रत्येक बरोबर उत्तराला गुण मिळतात; चुकीच्या उत्तराला गुण कापले जात नाहीत.", "Each correct answer earns marks; there is no negative marking.")}
           </p>
         </div>
         <Link to="/student/progress" className="shrink-0">
           <Button size="sm" variant="secondary" className="border-brand-200 text-brand-700 bg-white hover:bg-brand-50">
-            View My Progress Trend &rarr;
+            {t("माझी प्रगती पाहा →", "View My Progress Trend →")}
           </Button>
         </Link>
       </div>
@@ -189,47 +193,47 @@ export default function Result() {
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="rounded-2xl border border-line bg-white shadow-xs">
           <CardBody className="flex flex-col items-center py-8 px-6 text-center">
-            <ProgressRing value={percentage} size={156} stroke={14} sublabel="Score" />
+            <ProgressRing value={percentage} size={156} stroke={14} sublabel={t("गुण", "Score")} />
             <p className="mt-5 text-3xl font-extrabold text-ink tabular">
-              {score}
-              <span className="text-lg font-medium text-muted">/{total}</span>
+              {num(score)}
+              <span className="text-lg font-medium text-muted">/{num(total)}</span>
             </p>
             <Badge
               tone={percentage >= 75 ? "success" : percentage >= 50 ? "warning" : "danger"}
               className="mt-3 text-xs font-bold px-3 py-1"
             >
               {percentage >= 75
-                ? "Grade A · Excellent 🎉"
+                ? t("श्रेणी अ · उत्कृष्ट 🎉", "Grade A · Excellent 🎉")
                 : percentage >= 50
-                  ? "Grade B · Good Progress"
-                  : "Grade C · Practice Needed"}
+                  ? t("श्रेणी ब · चांगली प्रगती", "Grade B · Good Progress")
+                  : t("श्रेणी क · अधिक सराव हवा", "Grade C · Practice Needed")}
             </Badge>
-            <p className="mt-2 text-xs text-muted">Target for selection: 85%+ marks</p>
+            <p className="mt-2 text-xs text-muted">{t("निवडीसाठी लक्ष्य: ८५% पेक्षा जास्त गुण", "Target for selection: 85%+ marks")}</p>
           </CardBody>
         </Card>
 
         <Card className="lg:col-span-2 rounded-2xl border border-line bg-white shadow-xs">
           <CardHeader
-            title="Performance Summary"
-            subtitle={`${totalQ} questions · ${attempted} attempted · No negative marking`}
+            title={t("कामगिरीचा सारांश", "Performance Summary")}
+            subtitle={t(`${num(totalQ)} प्रश्न · ${num(attempted)} सोडवले · गुण कापले जात नाहीत`, `${totalQ} questions · ${attempted} attempted · No negative marking`)}
           />
           <CardBody className="p-6 space-y-6">
             <div className="grid gap-4 sm:grid-cols-3">
               <SummaryTile
                 icon={<CheckCircle2 className="size-5" />}
-                label="Correct Answers"
+                label={t("बरोबर उत्तरे", "Correct Answers")}
                 value={correct}
                 tone="success"
               />
               <SummaryTile
                 icon={<XCircle className="size-5" />}
-                label={`Wrong · ${Math.max(0, totalQ - attempted)} skipped`}
+                label={t(`चूक · ${num(Math.max(0, totalQ - attempted))} सोडले नाहीत`, `Wrong · ${Math.max(0, totalQ - attempted)} skipped`)}
                 value={Math.max(0, attempted - correct)}
                 tone="danger"
               />
               <SummaryTile
                 icon={<span className="text-base font-bold">%</span>}
-                label="Overall Accuracy"
+                label={t("अचूकता", "Overall Accuracy")}
                 value={pct(correct, totalQ)}
                 tone="brand"
                 suffix="%"
@@ -238,10 +242,10 @@ export default function Result() {
 
             {/* Section breakdown */}
             <div className="border-t border-line pt-5">
-              <p className="mb-4 text-sm font-bold text-ink">Section-Wise Marks Breakdown</p>
+              <p className="mb-4 text-sm font-bold text-ink">{t("विषयवार गुण", "Section-Wise Marks Breakdown")}</p>
               {loading ? (
                 <div className="flex items-center gap-2 text-sm text-muted py-4">
-                  <Loader2 className="size-4 animate-spin text-brand-500" /> Calculating section scores…
+                  <Loader2 className="size-4 animate-spin text-brand-500" /> {t("गुण मोजत आहे…", "Calculating section scores…")}
                 </div>
               ) : sections.length > 0 ? (
                 <div className="space-y-4">
@@ -250,9 +254,9 @@ export default function Result() {
                     return (
                       <div key={s.name} className="rounded-xl border border-line bg-slate-50/50 p-3.5">
                         <div className="mb-2 flex items-center justify-between text-xs font-semibold">
-                          <span className="text-ink font-bold text-sm">{s.name}</span>
+                          <span className="text-ink font-bold text-sm">{lang === "mr" ? SUBJECT_LABELS_MR[s.name] ?? s.name : SUBJECT_LABELS[s.name] ?? s.name}</span>
                           <span className="text-slate-600 tabular">
-                            {s.correct}/{s.total} Correct · {s.marks} Marks ({sPct}%)
+                            {t(`${num(s.correct)}/${num(s.total)} बरोबर · ${num(s.marks)} गुण (${num(sPct)}%)`, `${s.correct}/${s.total} Correct · ${s.marks} Marks (${sPct}%)`)}
                           </span>
                         </div>
                         <ProgressBar
@@ -266,7 +270,7 @@ export default function Result() {
                 </div>
               ) : (
                 <p className="text-xs text-muted py-4">
-                  Section breakdown details will load once attempt answers are finalized.
+                  {t("विषयवार गुण लवकरच दिसतील.", "Section breakdown details will load once attempt answers are finalized.")}
                 </p>
               )}
             </div>
@@ -277,16 +281,16 @@ export default function Result() {
       {/* Answer review */}
       <Card className="rounded-2xl border border-line bg-white shadow-xs print:break-before-page">
         <CardHeader
-          title="Answer review"
+          title={t("उत्तरांची तपासणी", "Answer review")}
           subtitle={
             testStatus === "completed"
-              ? "See the correct answer and explanation for every question"
-              : "Available after your teacher closes this test for everyone"
+              ? t("प्रत्येक प्रश्नाचे योग्य उत्तर व स्पष्टीकरण पाहा", "See the correct answer and explanation for every question")
+              : t("शिक्षकांनी परीक्षा बंद केल्यानंतर उपलब्ध होईल", "Available after your teacher closes this test for everyone")
           }
           action={
             testStatus === "completed" && review.length > 0 ? (
               <Button size="sm" variant="secondary" onClick={() => setShowReview((v) => !v)}>
-                {showReview ? "Hide answers" : "Show answers"}
+                {showReview ? t("उत्तरे लपवा", "Hide answers") : t("उत्तरे दाखवा", "Show answers")}
               </Button>
             ) : undefined
           }
@@ -294,7 +298,7 @@ export default function Result() {
         {testStatus !== "completed" ? (
           <CardBody className="flex items-center gap-3 text-sm text-muted">
             <Lock className="size-4 shrink-0" />
-            Other students may still be writing this test, so the answer key is locked for now.
+            {t("इतर विद्यार्थी अजून परीक्षा देत असतील, म्हणून उत्तरसूची सध्या बंद आहे.", "Other students may still be writing this test, so the answer key is locked for now.")}
           </CardBody>
         ) : (
           showReview && (
@@ -309,11 +313,11 @@ export default function Result() {
                 return (
                   <div key={i} className="rounded-xl border border-line p-4 break-inside-avoid">
                     <div className="mb-2 flex flex-wrap items-center gap-2 text-xs">
-                      <span className="font-bold text-ink">Q{i + 1}.</span>
+                      <span className="font-bold text-ink">{t("प्र.", "Q")}{num(i + 1)}.</span>
                       <Badge tone="neutral">{r.subject_name}</Badge>
                       <span className="text-muted">{r.topic_name}</span>
                       <Badge tone={r.is_correct ? "success" : r.selected_option ? "danger" : "warning"} className="ml-auto">
-                        {r.is_correct ? "Correct" : r.selected_option ? "Wrong" : "Not answered"}
+                        {r.is_correct ? t("बरोबर", "Correct") : r.selected_option ? t("चूक", "Wrong") : t("उत्तर दिले नाही", "Not answered")}
                       </Badge>
                     </div>
                     <p className="text-sm font-semibold text-ink whitespace-pre-wrap">{r.question_text}</p>
@@ -346,7 +350,7 @@ export default function Result() {
                     </div>
                     {r.explanation && (
                       <p className="mt-3 rounded-lg bg-brand-50/60 p-3 text-[13px] text-brand-900">
-                        <strong>Explanation: </strong>
+                        <strong>{t("स्पष्टीकरण: ", "Explanation: ")}</strong>
                         {r.explanation}
                       </p>
                     )}
@@ -361,12 +365,12 @@ export default function Result() {
       <div className="flex flex-wrap justify-center gap-3 pt-2">
         <Link to="/student/practice">
           <Button leftIcon={<RotateCcw className="size-4" />} size="md">
-            Practice Weaker Topics
+            {t("कमकुवत घटकांचा सराव करा", "Practice Weaker Topics")}
           </Button>
         </Link>
         <Link to="/student/mock-tests">
           <Button variant="secondary" size="md">
-            Back to Mock Tests
+            {t("सराव परीक्षांकडे परत", "Back to Mock Tests")}
           </Button>
         </Link>
       </div>

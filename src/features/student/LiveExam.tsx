@@ -9,6 +9,7 @@ import { useDeadline } from "@/lib/hooks";
 import { db, rpc } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/cn";
+import { LangToggle, useNum, useT } from "@/lib/lang";
 
 type Opt = "A" | "B" | "C" | "D";
 
@@ -52,6 +53,8 @@ export default function LiveExam() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
+  const t = useT();
+  const num = useNum();
 
   const [test, setTest] = useState<StartInfo | null>(null);
   const [paper, setPaper] = useState<PaperQuestion[]>([]);
@@ -119,7 +122,7 @@ export default function LiveExam() {
         setMarked(mSet);
       } catch (e) {
         if (cancelled) return;
-        toast({ type: "error", title: "Cannot open test", message: (e as Error).message });
+        toast({ type: "error", title: t("परीक्षा उघडता आली नाही", "Cannot open test"), message: (e as Error).message });
         setNotFound(true);
       } finally {
         if (!cancelled) setLoading(false);
@@ -224,15 +227,15 @@ export default function LiveExam() {
         await flush();
         if (pendingRef.current.size > 0) await flush(); // one retry
         const res = await rpc<SubmitResult>("submit_exam", { p_attempt_id: test.attempt_id });
-        if (auto) toast({ type: "info", title: "Time is up", message: "Your test was submitted automatically." });
+        if (auto) toast({ type: "info", title: t("वेळ संपली", "Time is up"), message: t("तुमची परीक्षा आपोआप सबमिट झाली.", "Your test was submitted automatically.") });
         navigate(`/student/result/${id}`, { replace: true, state: res });
       } catch (e) {
         submittedRef.current = false;
         setSubmitting(false);
         toast({
           type: "error",
-          title: "Submit failed",
-          message: `${(e as Error).message} Your answers are saved — try again.`,
+          title: t("सबमिट झाले नाही", "Submit failed"),
+          message: `${(e as Error).message} ${t("तुमची उत्तरे जतन आहेत — पुन्हा प्रयत्न करा.", "Your answers are saved — try again.")}`,
         });
       }
     },
@@ -273,27 +276,28 @@ export default function LiveExam() {
           <div className="leading-tight min-w-0">
             <p className="text-sm font-bold text-ink truncate">{test.title}</p>
             <p className="text-xs text-muted truncate">
-              {test.pattern} Pattern · {test.total_marks} Marks · {paper.length} Questions
+              {t(`${num(paper.length)} प्रश्न · ${num(test.total_marks)} गुण`, `${test.pattern} Pattern · ${test.total_marks} Marks · ${paper.length} Questions`)}
             </p>
           </div>
         </div>
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           {unsaved > 0 ? (
             <div className="flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 px-2.5 py-1 rounded-lg font-medium">
-              <CloudOff className="size-3.5" /> <span className="hidden md:inline">Saving…</span> {unsaved}
+              <CloudOff className="size-3.5" /> <span className="hidden md:inline">{t("जतन होत आहे…", "Saving…")}</span> {num(unsaved)}
             </div>
           ) : (
             <div className="hidden md:flex items-center gap-1.5 text-xs text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-lg font-medium">
-              <Check className="size-3.5 stroke-[2.5]" /> All answers saved
+              <Check className="size-3.5 stroke-[2.5]" /> {t("सर्व उत्तरे जतन झाली", "All answers saved")}
             </div>
           )}
+          <LangToggle className="hidden sm:inline-flex" />
           <TimerBadge remaining={remaining} total={durationSec} />
           <Button
             onClick={() => setConfirmOpen(true)}
             size="md"
             className="hidden sm:inline-flex bg-emerald-600 hover:bg-emerald-700 font-bold shadow-xs"
           >
-            Submit Test
+            {t("परीक्षा सबमिट करा", "Submit Test")}
           </Button>
         </div>
       </header>
@@ -305,15 +309,15 @@ export default function LiveExam() {
             <div className="mb-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="rounded-lg bg-brand-50 text-brand-700 px-2.5 py-1 text-xs font-bold tabular">
-                  Question {idx + 1} of {paper.length}
+                  {t(`प्रश्न ${num(idx + 1)} / ${num(paper.length)}`, `Question ${idx + 1} of ${paper.length}`)}
                 </span>
-                <span className="text-xs text-muted">+{q.marks} marks</span>
+                <span className="text-xs text-muted">+{num(q.marks)} {t("गुण", "marks")}</span>
               </div>
               <button
                 onClick={() => setPaletteOpen((o) => !o)}
                 className="inline-flex items-center gap-1.5 rounded-xl border border-line bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-xs hover:bg-slate-50 lg:hidden"
               >
-                <PanelRightClose className="size-4 text-brand-600" /> Question Palette
+                <PanelRightClose className="size-4 text-brand-600" /> {t("प्रश्न क्रमांक", "Question Palette")}
               </button>
             </div>
 
@@ -325,7 +329,7 @@ export default function LiveExam() {
                   <div className="overflow-hidden rounded-2xl border border-line bg-slate-50 p-2">
                     <img
                       src={q.image_url}
-                      alt="Question figure"
+                      alt={t("प्रश्नाची आकृती", "Question figure")}
                       className="w-full max-h-[26rem] rounded-xl border border-line object-contain bg-white"
                     />
                   </div>
@@ -371,7 +375,7 @@ export default function LiveExam() {
                 className={marked.has(idx) ? "bg-amber-500 hover:bg-amber-600 border-amber-500" : ""}
                 leftIcon={<Bookmark className={cn("size-4", marked.has(idx) && "fill-current")} />}
               >
-                {marked.has(idx) ? "Marked for Review" : "Mark for Review"}
+                {marked.has(idx) ? t("पुन्हा पाहण्यासाठी खूण केली", "Marked for Review") : t("पुन्हा पाहण्यासाठी खूण करा", "Mark for Review")}
               </Button>
               <div className="flex items-center gap-2">
                 <Button
@@ -380,14 +384,14 @@ export default function LiveExam() {
                   onClick={() => setIdx(idx - 1)}
                   leftIcon={<ArrowLeft className="size-4" />}
                 >
-                  Previous
+                  {t("मागील", "Previous")}
                 </Button>
                 <Button
                   disabled={idx === paper.length - 1}
                   onClick={() => setIdx(idx + 1)}
                   rightIcon={<ArrowRight className="size-4" />}
                 >
-                  Save & Next
+                  {t("जतन करा व पुढे", "Save & Next")}
                 </Button>
               </div>
             </div>
@@ -427,7 +431,7 @@ export default function LiveExam() {
       {/* Sticky mobile submit */}
       <div className="border-t border-line bg-white p-3 sm:hidden">
         <Button block onClick={() => setConfirmOpen(true)}>
-          Submit test
+          {t("परीक्षा सबमिट करा", "Submit test")}
         </Button>
       </div>
 
@@ -436,16 +440,26 @@ export default function LiveExam() {
         onClose={() => setConfirmOpen(false)}
         onConfirm={() => void submit()}
         loading={submitting}
-        title="Submit your test?"
-        confirmLabel="Yes, submit"
+        title={t("परीक्षा सबमिट करायची?", "Submit your test?")}
+        confirmLabel={t("होय, सबमिट करा", "Yes, submit")}
         description={
-          <span>
-            You've answered <strong className="text-ink">{answeredCount}</strong> of {paper.length} questions
-            {markedCount > 0 && (
-              <> and marked <strong className="text-ink">{markedCount}</strong> for review</>
-            )}
-            . Once submitted, you can't change your answers.
-          </span>
+          t("mr", "en") === "mr" ? (
+            <span>
+              तुम्ही {num(paper.length)} पैकी <strong className="text-ink">{num(answeredCount)}</strong> प्रश्न सोडवले आहेत
+              {markedCount > 0 && (
+                <> आणि <strong className="text-ink">{num(markedCount)}</strong> प्रश्नांवर खूण केली आहे</>
+              )}
+              . सबमिट केल्यानंतर उत्तरे बदलता येणार नाहीत.
+            </span>
+          ) : (
+            <span>
+              You've answered <strong className="text-ink">{answeredCount}</strong> of {paper.length} questions
+              {markedCount > 0 && (
+                <> and marked <strong className="text-ink">{markedCount}</strong> for review</>
+              )}
+              . Once submitted, you can't change your answers.
+            </span>
+          )
         }
       />
     </div>
@@ -462,14 +476,16 @@ function PaletteBody({
   markedCount: number;
   total: number;
 }) {
+  const t = useT();
+  const num = useNum();
   return (
     <div className="space-y-5">
       <div>
-        <p className="text-sm font-semibold text-ink">Question palette</p>
+        <p className="text-sm font-semibold text-ink">{t("प्रश्न क्रमांक", "Question palette")}</p>
         <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-          <MiniStat label="Answered" value={answeredCount} tone="text-success" />
-          <MiniStat label="Left" value={total - answeredCount} tone="text-muted" />
-          <MiniStat label="Review" value={markedCount} tone="text-warning" />
+          <MiniStat label={t("सोडवले", "Answered")} value={num(answeredCount)} tone="text-success" />
+          <MiniStat label={t("बाकी", "Left")} value={num(total - answeredCount)} tone="text-muted" />
+          <MiniStat label={t("खूण", "Review")} value={num(markedCount)} tone="text-warning" />
         </div>
       </div>
       <QuestionPalette states={states} current={idx} onJump={setIdx} />
@@ -478,13 +494,13 @@ function PaletteBody({
       </div>
       <div className="rounded-xl bg-brand-50/60 p-3 text-[13px] text-brand-700 flex items-start gap-2">
         <Check className="mt-0.5 size-4 shrink-0" />
-        No negative marking — attempt every question.
+        {t("चुकीच्या उत्तराला गुण कापले जात नाहीत — सर्व प्रश्न सोडवा.", "No negative marking — attempt every question.")}
       </div>
     </div>
   );
 }
 
-function MiniStat({ label, value, tone }: { label: string; value: number; tone: string }) {
+function MiniStat({ label, value, tone }: { label: string; value: number | string; tone: string }) {
   return (
     <div className="rounded-lg bg-slate-50 py-2">
       <p className={cn("text-lg font-semibold tabular", tone)}>{value}</p>

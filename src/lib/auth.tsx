@@ -9,6 +9,7 @@ import type { ReactNode } from "react";
 import type { Session, User as SupabaseUser } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabaseClient";
 import type { Role, Student, Teacher, User } from "@/types";
+import { pick } from "@/lib/lang";
 
 // ── Types ────────────────────────────────────────────────────
 interface AuthState {
@@ -55,7 +56,7 @@ function buildUser(profile: ProfileRow): Student | Teacher {
     username: profile.username,
     avatarColor: profile.avatar_color,
     rollNo: profile.roll_number ?? "",
-    className: profile.class_name ?? "4th A",
+    className: profile.class_name ?? "5th",
     status: profile.status,
     joinedAt: profile.created_at,
     lastActive: new Date().toISOString(),
@@ -161,8 +162,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (sErr || !studentEmail) {
             throw new Error(
               sErr && /could not find the function/i.test(sErr.message)
-                ? "Login is not set up yet. Ask your teacher to finish the database setup."
-                : "Student not found. Check your roll number or username.",
+                ? pick("लॉगिन अजून तयार नाही. शिक्षकांना सांगा.", "Login is not set up yet. Ask your teacher to finish the database setup.")
+                : pick("असा विद्यार्थी सापडला नाही. हजेरी क्रमांक किंवा नाव तपासा.", "Student not found. Check your roll number or username."),
             );
           }
           email = studentEmail as string;
@@ -177,8 +178,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (signInError || !signIn.user) {
         throw new Error(
           /fetch|network/i.test(signInError?.message ?? "")
-            ? "No internet connection. Check the network and try again."
-            : "Invalid username or password. Please try again.",
+            ? pick("इंटरनेट नाही. नेटवर्क तपासून पुन्हा प्रयत्न करा.", "No internet connection. Check the network and try again.")
+            : role === "student"
+              ? pick("नाव किंवा पासवर्ड चुकीचा आहे. पुन्हा प्रयत्न करा.", "Invalid username or password. Please try again.")
+              : "Invalid username or password. Please try again.",
         );
       }
 
@@ -191,14 +194,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       if (p.status === "inactive") {
         await supabase.auth.signOut();
-        throw new Error("This account has been deactivated. Please contact your teacher.");
+        throw new Error(pick("हे खाते बंद केले आहे. शिक्षकांशी बोला.", "This account has been deactivated. Please contact your teacher."));
       }
       if (p.role !== role) {
         await supabase.auth.signOut();
         throw new Error(
           p.role === "teacher"
             ? "This is a teacher account. Please choose the Teacher tab."
-            : "This is a student account. Please choose the Student tab.",
+            : pick("हे विद्यार्थ्याचे खाते आहे. 'विद्यार्थी' टॅब निवडा.", "This is a student account. Please choose the Student tab."),
         );
       }
       // onAuthStateChange will handle setting the user

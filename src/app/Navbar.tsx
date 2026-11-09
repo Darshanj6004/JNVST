@@ -2,11 +2,13 @@ import { useNavigate } from "react-router";
 import { Bell, LogOut, Menu, Search, Settings, User as UserIcon } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { Avatar, Dropdown, MenuItem, SearchInput } from "@/ui";
+import { LangToggle, useT } from "@/lib/lang";
 
 export function Navbar({ onOpenMenu }: { onOpenMenu: () => void }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const isTeacher = user?.role === "teacher";
+  const t = useT();
 
   const doLogout = () => {
     logout();
@@ -24,22 +26,24 @@ export function Navbar({ onOpenMenu }: { onOpenMenu: () => void }) {
       </button>
 
       <div className="hidden sm:block w-full max-w-xs">
-        <SearchInput placeholder={isTeacher ? "Search students, questions…" : "Search practice topics…"} />
+        <SearchInput placeholder={isTeacher ? "Search students, questions…" : t("विषय शोधा…", "Search practice topics…")} />
       </div>
 
       {!isTeacher && (
         <div className="hidden md:flex items-center gap-2 pl-2">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-200/80">
             <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            Active Practice Mode
+            {t("सराव सुरू ठेवा", "Active Practice Mode")}
           </span>
         </div>
       )}
 
-      <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
+      {!isTeacher && <LangToggle className="ml-auto sm:ml-2" />}
+
+      <div className={`${isTeacher ? "ml-auto" : "sm:ml-auto"} flex items-center gap-1.5 sm:gap-2`}>
         <button
           onClick={() => navigate(isTeacher ? "/teacher/dashboard" : "/student/notifications")}
-          aria-label="Notifications"
+          aria-label={isTeacher ? "Notifications" : t("सूचना", "Notifications")}
           className="relative flex size-10 items-center justify-center rounded-xl text-slate-500 hover:bg-slate-100 hover:text-ink transition-colors"
         >
           <Bell className="size-5" />
@@ -54,7 +58,7 @@ export function Navbar({ onOpenMenu }: { onOpenMenu: () => void }) {
               <Avatar name={user?.name ?? "User"} color={user?.avatarColor} size={32} />
               <span className="hidden text-left sm:flex sm:flex-col sm:leading-tight">
                 <span className="text-[13px] font-semibold text-ink">{user?.name}</span>
-                <span className="text-[11px] font-medium text-muted">{isTeacher ? "Class Teacher" : "Class 4 Student"}</span>
+                <span className="text-[11px] font-medium text-muted">{isTeacher ? "Class Teacher" : t("विद्यार्थी", "Student")}</span>
               </span>
             </span>
           }
@@ -72,7 +76,7 @@ export function Navbar({ onOpenMenu }: { onOpenMenu: () => void }) {
                   navigate(isTeacher ? "/teacher/settings" : "/student/profile");
                 }}
               >
-                My Profile
+                {isTeacher ? "My Profile" : t("माझी माहिती", "My Profile")}
               </MenuItem>
               {isTeacher && (
                 <MenuItem
@@ -86,7 +90,7 @@ export function Navbar({ onOpenMenu }: { onOpenMenu: () => void }) {
                 </MenuItem>
               )}
               <MenuItem icon={<LogOut className="size-4" />} danger onClick={doLogout}>
-                Sign out
+                {isTeacher ? "Sign out" : t("बाहेर पडा", "Sign out")}
               </MenuItem>
             </>
           )}

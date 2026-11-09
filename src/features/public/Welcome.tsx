@@ -100,7 +100,7 @@ export default function Welcome() {
           <div className="lg:col-span-7 space-y-6">
             <div className="inline-flex items-center gap-2 rounded-full border border-brand-200 bg-brand-50 px-3.5 py-1 text-xs font-semibold text-brand-700">
               <Sparkles className="size-3.5 text-brand-500" />
-              Official Pattern · Class 4 Scholarship & Entrance Practice
+              Official Pattern · Class 5 JNVST Entrance Practice
             </div>
 
             <h1 className="text-3xl font-extrabold leading-tight tracking-tight text-ink sm:text-4xl lg:text-5xl">
@@ -214,7 +214,7 @@ export default function Welcome() {
               </span>
               <div>
                 <h3 className="text-base font-bold text-ink">Student Experience</h3>
-                <p className="text-xs text-muted">Designed specifically for Class 4 learners</p>
+                <p className="text-xs text-muted">Designed specifically for Class 5 learners</p>
               </div>
             </div>
             <ul className="space-y-2.5 text-xs text-slate-600">

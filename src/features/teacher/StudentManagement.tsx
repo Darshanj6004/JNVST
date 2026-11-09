@@ -28,7 +28,7 @@ function rowToStudent(r: ProfileRow): Student {
     name: r.full_name,
     username: r.username,
     rollNo: r.roll_number ?? "",
-    className: r.class_name ?? "4th A",
+    className: r.class_name ?? "5th",
     avatarColor: r.avatar_color,
     status: r.status,
     joinedAt: "",

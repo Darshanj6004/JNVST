@@ -2,6 +2,7 @@ import { Check, Lightbulb, X } from "lucide-react";
 import type { Question } from "@/types";
 import { Badge } from "@/ui";
 import { cn } from "@/lib/cn";
+import { useT } from "@/lib/lang";
 
 const letters = ["A", "B", "C", "D", "E"];
 
@@ -18,6 +19,7 @@ export function QuestionCard({
   onSelect?: (i: number) => void;
   reveal?: boolean;
 }) {
+  const tr = useT();
   const difficultyTone = { easy: "success", medium: "warning", hard: "danger" } as const;
 
   return (
@@ -43,7 +45,7 @@ export function QuestionCard({
         <div className="mt-4 overflow-hidden rounded-2xl border border-line bg-slate-50 p-2">
           <img
             src={question.imageUrl}
-            alt="Question figure"
+            alt={tr("प्रश्नाची आकृती", "Question figure")}
             className="w-full max-h-[26rem] rounded-xl object-contain bg-white"
           />
         </div>
@@ -104,7 +106,7 @@ export function QuestionCard({
             <span className="flex size-7 items-center justify-center rounded-lg bg-brand-500 text-white shadow-xs">
               <Lightbulb className="size-4" />
             </span>
-            <p className="text-sm font-bold">Explanation & Solution Step:</p>
+            <p className="text-sm font-bold">{tr("स्पष्टीकरण:", "Explanation & Solution Step:")}</p>
           </div>
           <p className="mt-2 text-sm leading-relaxed text-slate-700 font-normal pl-9">
             {question.explanation}

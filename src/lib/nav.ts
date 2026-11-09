@@ -19,6 +19,8 @@ import {
 
 export interface NavItem {
   label: string;
+  /** Marathi label (student portal) */
+  mr?: string;
   to: string;
   icon: LucideIcon;
   badge?: number;
@@ -27,23 +29,25 @@ export interface NavItem {
 
 export interface NavSection {
   heading?: string;
+  headingMr?: string;
   items: NavItem[];
 }
 
 export const studentNav: NavSection[] = [
   {
     items: [
-      { label: "Dashboard", to: "/student/dashboard", icon: LayoutDashboard },
-      { label: "Practice", to: "/student/practice", icon: Dumbbell },
-      { label: "Mock Tests", to: "/student/mock-tests", icon: ClipboardList },
-      { label: "Progress", to: "/student/progress", icon: LineChart },
+      { label: "Dashboard", mr: "मुख्य पान", to: "/student/dashboard", icon: LayoutDashboard },
+      { label: "Practice", mr: "सराव", to: "/student/practice", icon: Dumbbell },
+      { label: "Mock Tests", mr: "सराव परीक्षा", to: "/student/mock-tests", icon: ClipboardList },
+      { label: "Progress", mr: "माझी प्रगती", to: "/student/progress", icon: LineChart },
     ],
   },
   {
     heading: "Account",
+    headingMr: "खाते",
     items: [
-      { label: "Notifications", to: "/student/notifications", icon: Bell },
-      { label: "Profile", to: "/student/profile", icon: User },
+      { label: "Notifications", mr: "सूचना", to: "/student/notifications", icon: Bell },
+      { label: "Profile", mr: "माझी माहिती", to: "/student/profile", icon: User },
     ],
   },
 ];

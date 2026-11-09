@@ -20,6 +20,7 @@ import { ProgressRing, ScoreTrend } from "@/charts";
 import { formatDateTime, relativeTime } from "@/lib/format";
 import { supabase } from "@/lib/supabaseClient";
 import { finalizeExpiredAttempts } from "@/lib/api";
+import { useNum, useT } from "@/lib/lang";
 import { useAuth } from "@/lib/auth";
 import type { Student } from "@/types";
 
@@ -70,6 +71,8 @@ interface TopicPerformance {
 }
 
 export default function StudentDashboard() {
+  const tr = useT();
+  const num = useNum();
   const { user } = useAuth();
   const student = user as Student | null;
   const firstName = student?.name?.split(" ")[0] ?? "Student";
@@ -268,7 +271,7 @@ export default function StudentDashboard() {
             <div className="flex size-12 items-center justify-center rounded-2xl bg-rose-100 text-rose-600 mb-3">
               <Info className="size-6" />
             </div>
-            <h3 className="text-lg font-bold text-slate-800">Unable to load dashboard data</h3>
+            <h3 className="text-lg font-bold text-slate-800">{tr("माहिती आणता आली नाही", "Unable to load dashboard data")}</h3>
             <p className="mt-1 text-sm text-slate-600 max-w-md">{error}</p>
             <Button
               onClick={loadDashboardData}
@@ -277,7 +280,7 @@ export default function StudentDashboard() {
               className="mt-4"
               leftIcon={<RefreshCw className="size-4" />}
             >
-              Retry Connection
+              {tr("पुन्हा प्रयत्न करा", "Retry Connection")}
             </Button>
           </CardBody>
         </Card>
@@ -287,18 +290,18 @@ export default function StudentDashboard() {
 
   return (
     <div className="space-y-6">
-      {/* Welcoming Banner for 4th Standard Student */}
+      {/* Welcoming banner */}
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-brand-600 via-brand-700 to-indigo-800 p-6 sm:p-8 text-white shadow-[var(--shadow-md)]">
         <div className="relative z-10 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-1.5 max-w-xl">
             <div className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold text-brand-100 backdrop-blur-md">
-              <Sparkles className="size-3.5 text-amber-300" /> JNVST 2027 · Class 4 Preparation
+              <Sparkles className="size-3.5 text-amber-300" /> {tr("नवोदय प्रवेश परीक्षा तयारी · इयत्ता ५", "JNVST 2027 · Class 4 Preparation")}
             </div>
             <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
-              Namaste, {firstName}! 👋
+              {tr(`नमस्कार, ${firstName}! 👋`, `Namaste, ${firstName}! 👋`)}
             </h1>
             <p className="text-sm text-brand-100 leading-relaxed">
-              Every small daily practice brings you closer to your Navodaya scholarship dream. Keep up the great work!
+              {tr("रोजचा थोडा सराव तुम्हाला नवोदयच्या स्वप्नाजवळ नेतो. असेच प्रयत्न करत राहा!", "Every small daily practice brings you closer to your Navodaya scholarship dream. Keep up the great work!")}
             </p>
           </div>
 
@@ -310,7 +313,7 @@ export default function StudentDashboard() {
                 className="bg-white text-brand-700 hover:bg-brand-50 border-white font-semibold shadow-sm"
                 leftIcon={<Dumbbell className="size-4" />}
               >
-                Start Practice
+                {tr("सराव सुरू करा", "Start Practice")}
               </Button>
             </Link>
             <Link to="/student/mock-tests">
@@ -320,7 +323,7 @@ export default function StudentDashboard() {
                 className="text-white hover:bg-white/15 border border-white/20"
                 rightIcon={<ArrowRight className="size-4" />}
               >
-                View Tests
+                {tr("परीक्षा पाहा", "View Tests")}
               </Button>
             </Link>
           </div>
@@ -330,9 +333,8 @@ export default function StudentDashboard() {
         <div className="mt-4 pt-4 border-t border-white/15 flex items-center justify-between flex-wrap gap-2 text-[12px] text-brand-200">
           <div className="flex items-center gap-2">
             <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span>Connected to real Supabase records · Analytics update automatically with your tests.</span>
+            <span>{tr("तुमचे गुण आणि प्रगती प्रत्येक परीक्षेनंतर आपोआप अद्ययावत होतात.", "Your scores and progress update automatically after every test.")}</span>
           </div>
-          <span className="text-brand-300">Phase 3 Live Connection</span>
         </div>
       </div>
 
@@ -341,9 +343,9 @@ export default function StudentDashboard() {
         {/* Card 1: Latest Mock Score */}
         <Card className="sm:col-span-2 lg:col-span-1">
           <CardBody className="flex items-center gap-4">
-            <ProgressRing value={latestPercentage ?? 0} sublabel="Score" />
+            <ProgressRing value={latestPercentage ?? 0} sublabel={tr("गुण", "Score")} />
             <div className="min-w-0">
-              <p className="text-xs font-medium uppercase tracking-wider text-muted">Latest Mock Score</p>
+              <p className="text-xs font-medium uppercase tracking-wider text-muted">{tr("शेवटच्या परीक्षेचे गुण", "Latest Mock Score")}</p>
               {latestAttempt ? (
                 <>
                   <p className="mt-1 text-2xl font-bold text-ink tabular">
@@ -361,19 +363,19 @@ export default function StudentDashboard() {
                       </p>
                     ) : (
                       <p className="mt-1.5 text-[12px] font-semibold text-slate-500">
-                        Same as previous test
+                        {tr("मागच्या परीक्षेइतकेच", "Same as previous test")}
                       </p>
                     )
                   ) : (
                     <p className="mt-1.5 flex items-center gap-1 text-[12px] font-medium text-brand-600">
-                      <Sparkles className="size-3.5" /> First mock test!
+                      <Sparkles className="size-3.5" /> {tr("पहिली परीक्षा!", "First mock test!")}
                     </p>
                   )}
                 </>
               ) : (
                 <>
                   <p className="mt-1 text-2xl font-bold text-slate-400 tabular">—</p>
-                  <p className="mt-1.5 text-[12px] text-muted">No tests taken yet</p>
+                  <p className="mt-1.5 text-[12px] text-muted">{tr("अजून परीक्षा दिली नाही", "No tests taken yet")}</p>
                 </>
               )}
             </div>
@@ -389,7 +391,7 @@ export default function StudentDashboard() {
             <p className="mt-3 text-2xl font-bold text-ink tabular leading-none">
               {totalQuestionsSolved}
             </p>
-            <p className="mt-1 text-xs text-muted font-medium">Questions Attempted</p>
+            <p className="mt-1 text-xs text-muted font-medium">{tr("सोडवलेले प्रश्न", "Questions Attempted")}</p>
             <p className="mt-2 text-[11px] font-medium text-brand-600">
               {submittedAttempts.length > 0
                 ? `Across ${submittedAttempts.length} completed mock ${submittedAttempts.length === 1 ? "test" : "tests"}`
@@ -407,7 +409,7 @@ export default function StudentDashboard() {
             <p className="mt-3 text-2xl font-bold text-ink tabular leading-none">
               {averageAccuracy !== null ? `${averageAccuracy}%` : "—"}
             </p>
-            <p className="mt-1 text-xs text-muted font-medium">Mock Exam Accuracy</p>
+            <p className="mt-1 text-xs text-muted font-medium">{tr("परीक्षेतील अचूकता", "Mock Exam Accuracy")}</p>
             <p className="mt-2 text-[11px] font-medium text-emerald-600">
               {averageAccuracy !== null
                 ? averageAccuracy >= 75
@@ -427,11 +429,11 @@ export default function StudentDashboard() {
               <Trophy className="size-5" />
             </div>
             <p className="mt-3 text-lg font-bold text-slate-700 leading-none">
-              Not available yet
+              {tr("अजून उपलब्ध नाही", "Not available yet")}
             </p>
-            <p className="mt-1.5 text-xs text-muted font-medium">Class Rank</p>
+            <p className="mt-1.5 text-xs text-muted font-medium">{tr("वर्गातील क्रमांक", "Class Rank")}</p>
             <p className="mt-2 text-[11px] font-medium text-amber-700 flex items-center gap-1">
-              <Info className="size-3" /> Class ranks published by teacher
+              <Info className="size-3" /> {tr("शिक्षक क्रमांक जाहीर करतील", "Class ranks published by teacher")}
             </p>
           </CardBody>
         </Card>
@@ -441,7 +443,7 @@ export default function StudentDashboard() {
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader
-            title="Progress Over Time"
+            title={tr("वेळेनुसार प्रगती", "Progress Over Time")}
             subtitle={
               scoreTrendData.length >= 2
                 ? "Your mock test percentage scores across tests"
@@ -450,7 +452,7 @@ export default function StudentDashboard() {
             action={
               <Link to="/student/progress">
                 <Button variant="ghost" size="sm" rightIcon={<ArrowRight className="size-4" />}>
-                  Detailed Analytics
+                  {tr("सविस्तर माहिती", "Detailed Analytics")}
                 </Button>
               </Link>
             }
@@ -461,12 +463,12 @@ export default function StudentDashboard() {
                 <div className="flex size-12 items-center justify-center rounded-2xl bg-brand-50 text-brand-600 mb-3">
                   <TrendingUp className="size-6" />
                 </div>
-                <h4 className="text-sm font-bold text-ink">No test history yet</h4>
+                <h4 className="text-sm font-bold text-ink">{tr("अजून परीक्षांची नोंद नाही", "No test history yet")}</h4>
                 <p className="mt-1 text-xs text-muted max-w-sm">
-                  Complete your first mock test to begin building your personal score progression curve.
+                  {tr("पहिली परीक्षा दिल्यानंतर तुमच्या गुणांचा आलेख येथे दिसेल.", "Complete your first mock test to begin building your personal score progression curve.")}
                 </p>
                 <Link to="/student/mock-tests" className="mt-4">
-                  <Button size="sm">Explore Mock Tests</Button>
+                  <Button size="sm">{tr("परीक्षा पाहा", "Explore Mock Tests")}</Button>
                 </Link>
               </div>
             ) : (
@@ -475,11 +477,11 @@ export default function StudentDashboard() {
                 <ScoreTrend data={scoreTrendData} height={250} averageLabel="" />
                 <div className="mt-4 flex flex-wrap items-center gap-6 text-[13px] pt-3 border-t border-line">
                   <span className="flex items-center gap-2 text-ink font-medium">
-                    <span className="h-2 w-4 rounded-full bg-brand-500" /> Your Mock Score (%)
+                    <span className="h-2 w-4 rounded-full bg-brand-500" /> {tr("तुमचे गुण (%)", "Your Mock Score (%)")}
                   </span>
                   {scoreTrendData.length === 1 && (
                     <span className="text-xs text-muted">
-                      1 test recorded · Take another test to see your score trajectory.
+                      {tr("एक परीक्षा झाली · आणखी परीक्षा दिल्यावर प्रगतीचा आलेख दिसेल.", "1 test recorded · Take another test to see your score trajectory.")}
                     </span>
                   )}
                 </div>
@@ -491,15 +493,15 @@ export default function StudentDashboard() {
         {/* Upcoming Mock Tests from real database */}
         <Card>
           <CardHeader
-            title="Upcoming Mock Tests"
+            title={tr("पुढील परीक्षा", "Upcoming Mock Tests")}
             subtitle={`${upcomingTests.length} scheduled in school`}
           />
           <CardBody className="space-y-3">
             {upcomingTests.length === 0 ? (
               <EmptyState
                 icon={<CalendarClock className="size-8" />}
-                title="No tests right now"
-                description="Your teacher hasn't scheduled any tests today. Practice topics below!"
+                title={tr("सध्या परीक्षा नाही", "No tests right now")}
+                description={tr("शिक्षकांनी आज परीक्षा ठेवलेली नाही. खालील घटकांचा सराव करा!", "Your teacher hasn't scheduled any tests today. Practice topics below!")}
               />
             ) : (
               upcomingTests.map((m) => (
@@ -533,7 +535,7 @@ export default function StudentDashboard() {
             )}
             <Link to="/student/mock-tests" className="block pt-1">
               <Button variant="secondary" block size="sm">
-                View All Mock Tests
+                {tr("सर्व परीक्षा पाहा", "View All Mock Tests")}
               </Button>
             </Link>
           </CardBody>
@@ -545,12 +547,12 @@ export default function StudentDashboard() {
         {/* Topic Strengths and Weaknesses */}
         <Card className="lg:col-span-2">
           <CardHeader
-            title="Topic Performance"
-            subtitle="Calculated from real exam answers (minimum 3 questions per topic)"
+            title={tr("घटकनिहाय कामगिरी", "Topic Performance")}
+            subtitle={tr("परीक्षेतील उत्तरांवरून (प्रत्येक घटकात किमान ३ प्रश्न)", "Calculated from real exam answers (minimum 3 questions per topic)")}
             action={
               <Link to="/student/practice">
                 <Button variant="ghost" size="sm" rightIcon={<ArrowRight className="size-4" />}>
-                  Practice Topics
+                  {tr("घटकांचा सराव करा", "Practice Topics")}
                 </Button>
               </Link>
             }
@@ -559,12 +561,12 @@ export default function StudentDashboard() {
             {topicStats.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-8 text-center bg-slate-50 rounded-xl border border-line">
                 <Target className="size-8 text-slate-400 mb-2" />
-                <p className="text-sm font-bold text-slate-700">No topic answers recorded yet</p>
+                <p className="text-sm font-bold text-slate-700">{tr("अजून घटकनिहाय नोंद नाही", "No topic answers recorded yet")}</p>
                 <p className="text-xs text-muted max-w-sm mt-1">
-                  Complete mock tests or practice questions to unlock your topic strengths and weakness insights.
+                  {tr("परीक्षा दिल्यानंतर कोणते घटक चांगले येतात व कोणत्या घटकांचा सराव हवा ते येथे दिसेल.", "Complete mock tests or practice questions to unlock your topic strengths and weakness insights.")}
                 </p>
                 <Link to="/student/practice" className="mt-3">
-                  <Button size="sm" variant="secondary">Start Practice Now</Button>
+                  <Button size="sm" variant="secondary">{tr("आता सराव सुरू करा", "Start Practice Now")}</Button>
                 </Link>
               </div>
             ) : (
@@ -573,7 +575,7 @@ export default function StudentDashboard() {
                   {/* Strong Topics */}
                   <div className="rounded-xl bg-emerald-50/40 p-4 border border-emerald-100">
                     <p className="mb-3 flex items-center gap-2 text-sm font-bold text-emerald-800">
-                      <span className="size-2 rounded-full bg-success" /> Strong Topics (&ge; 75%)
+                      <span className="size-2 rounded-full bg-success" /> {tr("चांगले येणारे घटक (७५% पेक्षा जास्त)", "Strong Topics (&ge; 75%)")}
                     </p>
                     {strongTopics.length > 0 ? (
                       <div className="space-y-3.5">
@@ -583,7 +585,7 @@ export default function StudentDashboard() {
                       </div>
                     ) : (
                       <p className="text-xs text-slate-500 py-2">
-                        No topics &ge; 75% accuracy yet. Keep practising!
+                        {tr("अजून ७५% पेक्षा जास्त गुणांचा घटक नाही. सराव करत राहा!", "No topics &ge; 75% accuracy yet. Keep practising!")}
                       </p>
                     )}
                   </div>
@@ -591,7 +593,7 @@ export default function StudentDashboard() {
                   {/* Needs Practice */}
                   <div className="rounded-xl bg-rose-50/40 p-4 border border-rose-100">
                     <p className="mb-3 flex items-center gap-2 text-sm font-bold text-rose-800">
-                      <span className="size-2 rounded-full bg-danger" /> Needs Practice (&lt; 50%)
+                      <span className="size-2 rounded-full bg-danger" /> {tr("सराव हवा असलेले घटक (५०% पेक्षा कमी)", "Needs Practice (&lt; 50%)")}
                     </p>
                     {weakTopics.length > 0 ? (
                       <div className="space-y-3.5">
@@ -601,7 +603,7 @@ export default function StudentDashboard() {
                       </div>
                     ) : (
                       <p className="text-xs text-slate-500 py-2">
-                        Great work! No topics below 50% accuracy right now.
+                        {tr("छान! सध्या ५०% पेक्षा कमी गुणांचा एकही घटक नाही.", "Great work! No topics below 50% accuracy right now.")}
                       </p>
                     )}
                   </div>
@@ -612,7 +614,7 @@ export default function StudentDashboard() {
                   <div className="flex items-center gap-2 rounded-xl bg-amber-50/70 p-3 border border-amber-200 text-xs text-amber-800">
                     <Info className="size-4 shrink-0 text-amber-600" />
                     <span>
-                      <strong>Building data:</strong> {buildingTopics.length}{" "}
+                      <strong>{tr("माहिती जमा होत आहे:", "Building data:")}</strong> {buildingTopics.length}{" "}
                       {buildingTopics.length === 1 ? "topic has" : "topics have"} fewer than 3 questions answered ({buildingTopics.map(t => t.topic).slice(0, 3).join(", ")}{buildingTopics.length > 3 ? "..." : ""}). Solve more questions to finalize categorization.
                     </span>
                   </div>
@@ -624,13 +626,13 @@ export default function StudentDashboard() {
 
         {/* Recent Activity from Real Exam Attempts */}
         <Card>
-          <CardHeader title="Recent Activity" subtitle="Your latest submitted mock tests" />
+          <CardHeader title={tr("अलीकडील परीक्षा", "Recent Activity")} subtitle={tr("तुम्ही नुकत्याच दिलेल्या परीक्षा", "Your latest submitted mock tests")} />
           <CardBody className="space-y-1">
             {submittedAttempts.length === 0 ? (
               <EmptyState
                 icon={<FileText className="size-8" />}
-                title="No tests submitted yet"
-                description="When you take and submit mock tests, your results will show up here."
+                title={tr("अजून परीक्षा दिली नाही", "No tests submitted yet")}
+                description={tr("परीक्षा दिल्यानंतर तुमचे निकाल येथे दिसतील.", "When you take and submit mock tests, your results will show up here.")}
               />
             ) : (
               submittedAttempts.slice(0, 5).map((a) => {

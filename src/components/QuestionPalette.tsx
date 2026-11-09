@@ -1,4 +1,5 @@
 import { cn } from "@/lib/cn";
+import { useNum, useT } from "@/lib/lang";
 
 export type QState = "answered" | "unanswered" | "review" | "current";
 
@@ -11,6 +12,8 @@ export function QuestionPalette({
   current: number;
   onJump: (i: number) => void;
 }) {
+  const t = useT();
+  const num = useNum();
   const styles: Record<Exclude<QState, "current">, string> = {
     answered: "bg-emerald-600 text-white ring-emerald-600 shadow-xs",
     unanswered: "bg-white text-slate-600 ring-slate-200 hover:bg-slate-50",
@@ -30,16 +33,16 @@ export function QuestionPalette({
       {/* Quick summary badges */}
       <div className="grid grid-cols-3 gap-1.5 text-center text-xs">
         <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-1.5">
-          <p className="font-bold text-emerald-700 tabular">{counts.answered}</p>
-          <p className="text-[10px] text-emerald-600 font-medium">Answered</p>
+          <p className="font-bold text-emerald-700 tabular">{num(counts.answered)}</p>
+          <p className="text-[10px] text-emerald-600 font-medium">{t("सोडवले", "Answered")}</p>
         </div>
         <div className="rounded-lg bg-amber-50 border border-amber-200 p-1.5">
-          <p className="font-bold text-amber-700 tabular">{counts.review}</p>
-          <p className="text-[10px] text-amber-600 font-medium">Review</p>
+          <p className="font-bold text-amber-700 tabular">{num(counts.review)}</p>
+          <p className="text-[10px] text-amber-600 font-medium">{t("खूण", "Review")}</p>
         </div>
         <div className="rounded-lg bg-slate-100 border border-slate-200 p-1.5">
-          <p className="font-bold text-slate-700 tabular">{counts.unanswered}</p>
-          <p className="text-[10px] text-slate-500 font-medium">Left</p>
+          <p className="font-bold text-slate-700 tabular">{num(counts.unanswered)}</p>
+          <p className="text-[10px] text-slate-500 font-medium">{t("बाकी", "Left")}</p>
         </div>
       </div>
 
@@ -57,7 +60,7 @@ export function QuestionPalette({
                 isCurrent && "ring-2 ring-offset-2 ring-brand-600 scale-105 z-10 font-extrabold",
               )}
             >
-              {i + 1}
+              {num(i + 1)}
             </button>
           );
         })}
@@ -67,10 +70,11 @@ export function QuestionPalette({
 }
 
 export function PaletteLegend() {
+  const t = useT();
   const items = [
-    { label: "Answered", countCls: "bg-emerald-600 text-white" },
-    { label: "Marked for review", countCls: "bg-amber-500 text-white" },
-    { label: "Not answered yet", countCls: "bg-white text-slate-600 ring-1 ring-slate-200" },
+    { label: t("उत्तर दिले", "Answered"), countCls: "bg-emerald-600 text-white" },
+    { label: t("पुन्हा पाहण्यासाठी खूण", "Marked for review"), countCls: "bg-amber-500 text-white" },
+    { label: t("अजून उत्तर दिले नाही", "Not answered yet"), countCls: "bg-white text-slate-600 ring-1 ring-slate-200" },
   ];
   return (
     <div className="flex flex-col gap-2 pt-2 border-t border-line">

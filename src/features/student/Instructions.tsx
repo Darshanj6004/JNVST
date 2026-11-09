@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { supabase } from "@/lib/supabaseClient";
 import { formatDateTime } from "@/lib/format";
 import { finalizeExpiredAttempts } from "@/lib/api";
+import { useNum, useT } from "@/lib/lang";
 
 type DBTest = {
   id: string;
@@ -20,6 +21,8 @@ type DBTest = {
 };
 
 export default function Instructions() {
+  const t = useT();
+  const num = useNum();
   const { id } = useParams();
   const navigate = useNavigate();
   const [test, setTest] = useState<DBTest | null>(null);
@@ -61,26 +64,26 @@ export default function Instructions() {
   if (notFound || !test) return <Navigate to="/student/mock-tests" replace />;
 
   const rules = [
-    { icon: Clock, text: `The test is timed for ${test.duration_minutes} minutes and auto-submits when time runs out.` },
-    { icon: Ban, text: "There is no negative marking — attempt every question." },
-    { icon: Bookmark, text: "You can mark questions for review and revisit them using the question palette." },
-    { icon: ShieldCheck, text: "This is a single-attempt test. Your answers are saved as you go." },
-    { icon: CheckCircle2, text: "Each question carries marks as set by your teacher. Choose the single best option." },
+    { icon: Clock, text: t(`परीक्षेसाठी ${num(test.duration_minutes)} मिनिटे वेळ आहे. वेळ संपताच परीक्षा आपोआप सबमिट होईल.`, `The test is timed for ${test.duration_minutes} minutes and auto-submits when time runs out.`) },
+    { icon: Ban, text: t("चुकीच्या उत्तराला गुण कापले जात नाहीत — म्हणून सर्व प्रश्न सोडवा.", "There is no negative marking — attempt every question.") },
+    { icon: Bookmark, text: t("शंका असलेल्या प्रश्नावर खूण करा आणि नंतर प्रश्न क्रमांकावरून पुन्हा पाहा.", "You can mark questions for review and revisit them using the question palette.") },
+    { icon: ShieldCheck, text: t("ही परीक्षा एकदाच देता येते. तुमची उत्तरे आपोआप जतन होतात.", "This is a single-attempt test. Your answers are saved as you go.") },
+    { icon: CheckCircle2, text: t("प्रत्येक प्रश्नासाठी चार पर्यायांपैकी एकच योग्य उत्तर निवडा.", "Each question carries marks as set by your teacher. Choose the single best option.") },
   ];
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <Link to="/student/mock-tests" className="inline-flex items-center gap-1.5 text-sm font-medium text-muted hover:text-ink">
-        <ArrowLeft className="size-4" /> Back to mock tests
+        <ArrowLeft className="size-4" /> {t("सराव परीक्षांकडे परत", "Back to mock tests")}
       </Link>
 
-      <PageHeader title={test.title} description={`${test.pattern} pattern · ${test.total_marks} marks`} />
+      <PageHeader title={test.title} description={t(`${num(test.total_marks)} गुण`, `${test.pattern} pattern · ${test.total_marks} marks`)} />
 
       <div className="grid grid-cols-3 gap-3">
         {[
-          ["Questions", test.total_questions, "80 Questions"],
-          ["Total Marks", test.total_marks, "1.25 per question"],
-          ["Exam Time", `${test.duration_minutes}m`, "2 Hours Full"],
+          [t("प्रश्न", "Questions"), num(test.total_questions), t("एकूण प्रश्न", "questions in total")],
+          [t("एकूण गुण", "Total Marks"), num(test.total_marks), t("प्रत्येक प्रश्नाला गुण", "marks for the test")],
+          [t("वेळ", "Exam Time"), t(`${num(test.duration_minutes)} मि.`, `${test.duration_minutes}m`), t("मिनिटे", "minutes")],
         ].map(([l, v, hint]) => (
           <Card key={l as string} className="rounded-2xl border border-line bg-white shadow-xs">
             <CardBody className="p-4 text-center">
@@ -99,8 +102,8 @@ export default function Instructions() {
               <AlertTriangle className="size-4" />
             </span>
             <div>
-              <h3 className="text-base font-bold text-ink">Important Examination Rules</h3>
-              <p className="text-xs text-muted">Please read carefully before starting the test</p>
+              <h3 className="text-base font-bold text-ink">{t("परीक्षेचे महत्त्वाचे नियम", "Important Examination Rules")}</h3>
+              <p className="text-xs text-muted">{t("परीक्षा सुरू करण्यापूर्वी नीट वाचा", "Please read carefully before starting the test")}</p>
             </div>
           </div>
 
@@ -117,7 +120,7 @@ export default function Instructions() {
 
           <div className="rounded-2xl border border-brand-200 bg-brand-50/50 p-4 transition-colors">
             <Checkbox
-              label="I understand the examination rules and I am ready to begin my test."
+              label={t("मी सर्व नियम वाचले आहेत आणि परीक्षा देण्यास तयार आहे.", "I understand the examination rules and I am ready to begin my test.")}
               checked={agreed}
               onChange={(e) => setAgreed(e.target.checked)}
             />
@@ -126,7 +129,7 @@ export default function Instructions() {
           <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-3 pt-2">
             <Link to="/student/mock-tests">
               <Button variant="secondary" size="md" className="w-full sm:w-auto">
-                Not Now, Go Back
+                {t("आता नाही, परत जा", "Not Now, Go Back")}
               </Button>
             </Link>
             <Button
@@ -137,12 +140,12 @@ export default function Instructions() {
               rightIcon={<ShieldCheck className="size-4" />}
             >
               {test.status === "live"
-                ? "Start Examination Now"
+                ? t("परीक्षा सुरू करा", "Start Examination Now")
                 : test.status === "completed"
-                  ? "This test is closed"
+                  ? t("ही परीक्षा बंद झाली आहे", "This test is closed")
                   : test.scheduled_at
-                    ? `Opens ${formatDateTime(test.scheduled_at)}`
-                    : "Test is not open yet"}
+                    ? t(`${formatDateTime(test.scheduled_at)} ला सुरू होईल`, `Opens ${formatDateTime(test.scheduled_at)}`)
+                    : t("परीक्षा अजून सुरू झाली नाही", "Test is not open yet")}
             </Button>
           </div>
         </CardBody>

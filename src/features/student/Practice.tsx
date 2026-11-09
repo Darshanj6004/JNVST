@@ -22,7 +22,8 @@ import { ProgressRing } from "@/charts";
 import { difficulties } from "@/data/subjects";
 import { useSubjects } from "@/lib/useSubjects";
 import { useAuth } from "@/lib/auth";
-import { codeToLocal, db, localToCode, rpc } from "@/lib/api";
+import { codeToLocal, db, localToCode, rpc, SUBJECT_LABELS_MR } from "@/lib/api";
+import { useNum, useT } from "@/lib/lang";
 import { pct } from "@/lib/format";
 import { cn } from "@/lib/cn";
 
@@ -57,6 +58,15 @@ type PracticeRow = {
 
 const PRACTICE_SIZE = 20;
 
+// Marathi names for the student portal
+const SUBJ_MR: Record<string, string> = { mat: "बुद्धिमत्ता चाचणी", ari: "अंकगणित", lan: "भाषा" };
+const LEVEL_MR: Record<string, { name: string; description: string }> = {
+  easy: { name: "सोपे", description: "मूलभूत समज तपासणारे सोपे प्रश्न" },
+  medium: { name: "मध्यम", description: "थोडा विचार करायला लावणारे प्रश्न" },
+  hard: { name: "कठीण", description: "जास्त विचार व तर्क लागणारे प्रश्न" },
+  combined: { name: "मिश्र", description: "सोपे, मध्यम व कठीण प्रश्न एकत्र" },
+};
+
 function toQuestion(q: PracticeRow): Question {
   return {
     id: q.id,
@@ -67,7 +77,7 @@ function toQuestion(q: PracticeRow): Question {
     options: [q.option_a, q.option_b, q.option_c, q.option_d],
     answer: Math.max(0, ["A", "B", "C", "D"].indexOf(q.correct_option)),
     marks: Number(q.marks) || 1.25,
-    explanation: q.explanation || "No explanation provided for this question.",
+    explanation: q.explanation || "या प्रश्नासाठी स्पष्टीकरण उपलब्ध नाही.",
     imageUrl: q.image_url || undefined,
     usedCount: 0,
     updatedAt: new Date().toISOString(),
@@ -75,6 +85,8 @@ function toQuestion(q: PracticeRow): Question {
 }
 
 export default function Practice() {
+  const tr = useT();
+  const num = useNum();
   const { user } = useAuth();
   const { subjects: availableSubjects } = useSubjects({ practiceCounts: true });
   const [phase, setPhase] = useState<Phase>("subject");
@@ -181,7 +193,7 @@ export default function Practice() {
     [questions, answers],
   );
 
-  const steps = ["Subject", "Topic", "Difficulty"];
+  const steps = [tr("विषय", "Subject"), tr("घटक", "Topic"), tr("पातळी", "Difficulty")];
   const stepIndex = phase === "subject" ? 0 : phase === "topic" ? 1 : 2;
 
   // Render question session or results view
@@ -212,8 +224,8 @@ export default function Practice() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Practice mode"
-        description="Untimed practice powered by the central question bank with instant feedback and explanations."
+        title={tr("सराव", "Practice mode")}
+        description={tr("वेळेचे बंधन नाही — प्रत्येक प्रश्नानंतर लगेच योग्य उत्तर व स्पष्टीकरण पाहा.", "Untimed practice powered by the central question bank with instant feedback and explanations.")}
       />
 
       {/* Stepper */}
@@ -231,21 +243,21 @@ export default function Practice() {
               )}
             >
               {i < stepIndex ? <Check className="size-3.5 stroke-[3]" /> : <span className="tabular">{i + 1}</span>}
-              Step {i + 1}: {s}
+              {tr(`पायरी ${num(i + 1)}: ${s}`, `Step ${i + 1}: ${s}`)}
             </span>
             {i < steps.length - 1 && <ChevronRight className="size-4 text-slate-300" />}
           </div>
         ))}
 
         <div className="ml-auto hidden sm:flex items-center gap-1.5 text-xs font-medium text-brand-600 bg-brand-50 px-2.5 py-1 rounded-lg">
-          <Sparkles className="size-3.5" /> Central Question Bank · Instant Explanations
+          <Sparkles className="size-3.5" /> {tr("लगेच उत्तर व स्पष्टीकरण", "Central Question Bank · Instant Explanations")}
         </div>
       </div>
 
       {/* Teacher-assigned practice sets */}
       {phase === "subject" && sets.length > 0 && (
         <div className="space-y-3">
-          <p className="text-sm font-semibold text-ink">Assigned by your teacher</p>
+          <p className="text-sm font-semibold text-ink">{tr("शिक्षकांनी दिलेले सराव संच", "Assigned by your teacher")}</p>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {sets.map((ps) => (
               <button key={ps.id} onClick={() => void beginSet(ps)} className="text-left cursor-pointer group">
@@ -254,12 +266,12 @@ export default function Practice() {
                     <div className="flex items-start justify-between gap-2">
                       <p className="text-sm font-bold text-ink group-hover:text-brand-600">{ps.title}</p>
                       <Badge tone="brand" className="shrink-0">
-                        {ps.question_ids.length} Q
+                        {tr(`${num(ps.question_ids.length)} प्रश्न`, `${ps.question_ids.length} Q`)}
                       </Badge>
                     </div>
                     <p className="mt-1 text-xs text-muted">
-                      {ps.subjects?.name ?? "Mixed"}
-                      {ps.difficulty && ps.difficulty !== "combined" ? ` · ${ps.difficulty}` : ""}
+                      {tr(SUBJECT_LABELS_MR[ps.subjects?.code ?? ""] ?? "मिश्र", ps.subjects?.name ?? "Mixed")}
+                      {ps.difficulty && ps.difficulty !== "combined" ? ` · ${tr(LEVEL_MR[ps.difficulty]?.name ?? ps.difficulty, ps.difficulty)}` : ""}
                     </p>
                     {ps.description && <p className="mt-2 line-clamp-2 text-xs text-slate-600">{ps.description}</p>}
                   </CardBody>
@@ -267,14 +279,14 @@ export default function Practice() {
               </button>
             ))}
           </div>
-          <p className="pt-2 text-sm font-semibold text-ink">Or practise on your own</p>
+          <p className="pt-2 text-sm font-semibold text-ink">{tr("किंवा स्वतः सराव करा", "Or practise on your own")}</p>
         </div>
       )}
 
       {/* Step 1: Subject Selection */}
       {phase === "subject" && (
         <div className="space-y-4">
-          <p className="text-sm font-medium text-slate-600">Select a subject to begin your practice session:</p>
+          <p className="text-sm font-medium text-slate-600">{tr("सराव सुरू करण्यासाठी विषय निवडा:", "Select a subject to begin your practice session:")}</p>
           <div className="grid gap-4 sm:grid-cols-3">
             {availableSubjects.map((s) => {
               const Icon = icons[s.id] ?? Brain;
@@ -296,13 +308,13 @@ export default function Practice() {
                         <Icon className="size-7" />
                       </div>
                       <h3 className="mt-5 text-lg font-bold text-ink group-hover:text-brand-600 transition-colors">
-                        {s.short}
+                        {tr(SUBJ_MR[s.id] ?? s.short, s.short)}
                       </h3>
-                      <p className="mt-1 text-xs text-muted leading-relaxed">{s.name}</p>
+                      <p className="mt-1 text-xs text-muted leading-relaxed">{tr(`${SUBJ_MR[s.id] ?? s.name} — सर्व घटक`, s.name)}</p>
                       <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3">
-                        <span className="text-xs font-semibold text-slate-500">{s.topics.length} topics</span>
+                        <span className="text-xs font-semibold text-slate-500">{tr(`${num(s.topics.length)} घटक`, `${s.topics.length} topics`)}</span>
                         <span className="flex items-center gap-1 text-xs font-bold text-brand-600">
-                          Select <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-1" />
+                          {tr("निवडा", "Select")} <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-1" />
                         </span>
                       </div>
                     </CardBody>
@@ -317,9 +329,9 @@ export default function Practice() {
       {/* Step 2: Topic Selection */}
       {phase === "topic" && subject && (
         <div className="space-y-4">
-          <BackButton onClick={() => setPhase("subject")} label="Back to subjects" />
+          <BackButton onClick={() => setPhase("subject")} label={tr("विषयांकडे परत", "Back to subjects")} />
           <p className="text-sm font-medium text-slate-600">
-            Choose a topic in <span className="font-bold text-ink">{subject.short}</span>:
+            {tr("घटक निवडा —", "Choose a topic in")} <span className="font-bold text-ink">{tr(SUBJ_MR[subject.id] ?? subject.short, subject.short)}</span>:
           </p>
           <div className="grid gap-3 sm:grid-cols-2">
             <button
@@ -335,8 +347,8 @@ export default function Practice() {
                     <Sparkles className="size-5" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-bold text-brand-900">All Topics (Mixed Practice)</p>
-                    <p className="text-xs text-brand-700">Practice questions from all {subject.topics.length} topics</p>
+                    <p className="text-sm font-bold text-brand-900">{tr("सर्व घटक (मिश्र सराव)", "All Topics (Mixed Practice)")}</p>
+                    <p className="text-xs text-brand-700">{tr(`सर्व ${num(subject.topics.length)} घटकांचे प्रश्न`, `Practice questions from all ${subject.topics.length} topics`)}</p>
                   </div>
                   <ArrowRight className="size-4 text-brand-500 transition-transform group-hover:translate-x-1 shrink-0" />
                 </CardBody>
@@ -358,10 +370,10 @@ export default function Practice() {
                         {t.name}
                       </p>
                       <p className="truncate text-xs text-muted mt-0.5">
-                        {t.questionCount > 0 ? `${t.questionCount} practice questions` : "No questions yet"}
+                        {t.questionCount > 0 ? tr(`${num(t.questionCount)} सराव प्रश्न`, `${t.questionCount} practice questions`) : tr("अजून प्रश्न नाहीत", "No questions yet")}
                       </p>
                     </div>
-                    <Badge tone="brand" className="font-semibold shrink-0">Select</Badge>
+                    <Badge tone="brand" className="font-semibold shrink-0">{tr("निवडा", "Select")}</Badge>
                   </CardBody>
                 </Card>
               </button>
@@ -373,8 +385,8 @@ export default function Practice() {
       {/* Step 3: Difficulty Selection */}
       {phase === "difficulty" && (
         <div className="space-y-4">
-          <BackButton onClick={() => setPhase("topic")} label="Back to topics" />
-          <p className="text-sm font-medium text-slate-600">Choose your challenge level:</p>
+          <BackButton onClick={() => setPhase("topic")} label={tr("घटकांकडे परत", "Back to topics")} />
+          <p className="text-sm font-medium text-slate-600">{tr("काठिण्य पातळी निवडा:", "Choose your challenge level:")}</p>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {difficulties.map((d) => (
               <button
@@ -388,11 +400,11 @@ export default function Practice() {
                       {d.code}
                     </span>
                     <p className="mt-3 text-base font-bold text-ink group-hover:text-brand-600 transition-colors">
-                      {d.name}
+                      {tr(LEVEL_MR[d.id]?.name ?? d.name, d.name)}
                     </p>
-                    <p className="mt-1 text-xs leading-relaxed text-muted">{d.description}</p>
+                    <p className="mt-1 text-xs leading-relaxed text-muted">{tr(LEVEL_MR[d.id]?.description ?? d.description, d.description)}</p>
                     <p className="mt-4 flex items-center gap-1 text-xs font-bold text-brand-600">
-                      Start <ArrowRight className="size-3 transition-transform group-hover:translate-x-1" />
+                      {tr("सुरू करा", "Start")} <ArrowRight className="size-3 transition-transform group-hover:translate-x-1" />
                     </p>
                   </CardBody>
                 </Card>
@@ -453,7 +465,11 @@ function RunView({
   onFinish: () => void;
   onRestart: () => void;
 }) {
-  const topicLabel = topic === "all" ? "All Topics" : topic?.name ?? "Topic";
+  const tr = useT();
+  const num = useNum();
+  const subjName = tr(SUBJ_MR[subject.id] ?? subject.short, subject.short);
+  const levelName = (d: string) => tr(LEVEL_MR[d]?.name ?? d, d === "combined" ? "Combined" : d);
+  const topicLabel = topic === "all" ? tr("सर्व घटक", "All Topics") : topic?.name ?? tr("घटक", "Topic");
 
   // Loading State
   if (loading) {
@@ -462,9 +478,9 @@ function RunView({
         <div className="flex size-14 items-center justify-center rounded-2xl bg-brand-50 text-brand-600 mx-auto">
           <Loader2 className="size-7 animate-spin" />
         </div>
-        <h3 className="text-lg font-bold text-ink">Loading Practice Questions</h3>
+        <h3 className="text-lg font-bold text-ink">{tr("सराव प्रश्न येत आहेत", "Loading Practice Questions")}</h3>
         <p className="text-sm text-muted max-w-sm mx-auto">
-          Fetching questions from the central question bank for {subject.short} ({topicLabel})...
+          {tr(`${subjName} (${topicLabel}) चे प्रश्न आणत आहे…`, `Fetching questions for ${subject.short} (${topicLabel})...`)}
         </p>
       </div>
     );
@@ -479,14 +495,14 @@ function RunView({
             <div className="flex size-12 items-center justify-center rounded-2xl bg-rose-100 text-rose-600 mx-auto">
               <Info className="size-6" />
             </div>
-            <h3 className="text-lg font-bold text-rose-950">Could not load questions</h3>
+            <h3 className="text-lg font-bold text-rose-950">{tr("प्रश्न आणता आले नाहीत", "Could not load questions")}</h3>
             <p className="text-sm text-rose-800">{error}</p>
             <div className="pt-2 flex flex-wrap justify-center gap-3">
               <Button onClick={onRetry} leftIcon={<RefreshCw className="size-4" />} size="sm">
-                Retry Query
+                {tr("पुन्हा प्रयत्न करा", "Retry Query")}
               </Button>
               <Button onClick={onBackToDifficulty} variant="secondary" size="sm">
-                Choose Different Level
+                {tr("दुसरी पातळी निवडा", "Choose Different Level")}
               </Button>
             </div>
           </CardBody>
@@ -504,19 +520,19 @@ function RunView({
             <div className="flex size-14 items-center justify-center rounded-2xl bg-amber-50 text-amber-600 mx-auto">
               <Sparkles className="size-7" />
             </div>
-            <h3 className="text-lg font-bold text-ink">No questions available yet</h3>
+            <h3 className="text-lg font-bold text-ink">{tr("अजून प्रश्न उपलब्ध नाहीत", "No questions available yet")}</h3>
             <p className="text-sm text-muted max-w-md mx-auto">
-              We couldn&apos;t find any questions for <strong>{subject.short} &gt; {topicLabel}</strong> at difficulty level &ldquo;{difficulty}&rdquo; in the question bank.
+              {tr(`${subjName} › ${topicLabel} — "${levelName(difficulty)}" पातळीचे प्रश्न सध्या उपलब्ध नाहीत.`, `We couldn't find any questions for ${subject.short} › ${topicLabel} at difficulty level "${difficulty}".`)}
             </p>
             <div className="pt-4 flex flex-wrap justify-center gap-3">
               <Button onClick={onBackToDifficulty} size="sm">
-                Try Another Difficulty (e.g. Combined)
+                {tr("दुसरी पातळी निवडा (उदा. मिश्र)", "Try Another Difficulty (e.g. Combined)")}
               </Button>
               <Button onClick={onBackToTopics} variant="secondary" size="sm">
-                Choose Another Topic
+                {tr("दुसरा घटक निवडा", "Choose Another Topic")}
               </Button>
               <Button onClick={onRestart} variant="ghost" size="sm">
-                Back to Subjects
+                {tr("विषयांकडे परत", "Back to Subjects")}
               </Button>
             </div>
           </CardBody>
@@ -531,19 +547,19 @@ function RunView({
     const feedback =
       percentage >= 75
         ? {
-            title: "Outstanding Work! 🌟",
-            text: "You have a strong understanding of this topic. Keep this momentum!",
+            title: tr("खूप छान! 🌟", "Outstanding Work! 🌟"),
+            text: tr("तुम्हाला हा घटक चांगला समजला आहे. असाच सराव करत राहा!", "You have a strong understanding of this topic. Keep this momentum!"),
             tone: "text-emerald-700 bg-emerald-50 border-emerald-200",
           }
         : percentage >= 50
           ? {
-              title: "Good Effort! 👍",
-              text: "You are making steady progress. Review the questions you missed below.",
+              title: tr("चांगला प्रयत्न! 👍", "Good Effort! 👍"),
+              text: tr("तुमची प्रगती होत आहे. चुकलेले प्रश्न खाली पुन्हा पाहा.", "You are making steady progress. Review the questions you missed below."),
               tone: "text-amber-800 bg-amber-50 border-amber-200",
             }
           : {
-              title: "Keep Practising! 💪",
-              text: "Every attempt makes you sharper. Take time to read each explanation below.",
+              title: tr("सराव करत राहा! 💪", "Keep Practising! 💪"),
+              text: tr("प्रत्येक प्रयत्नाने तुम्ही अधिक हुशार होता. खालील स्पष्टीकरणे नीट वाचा.", "Every attempt makes you sharper. Take time to read each explanation below."),
               tone: "text-blue-800 bg-blue-50 border-blue-200",
             };
 
@@ -557,27 +573,27 @@ function RunView({
               {feedback.text}
             </div>
             <p className="mt-2 text-xs font-medium text-slate-500">
-              {subject.short} · {topicLabel} · {difficulty === "combined" ? "Combined" : difficulty} mode
+              {subjName} · {topicLabel} · {levelName(difficulty)}
             </p>
 
             <div className="mt-6 grid grid-cols-3 gap-4 w-full max-w-xs border-y border-line py-4">
-              <Stat label="Correct" value={`${score}`} tone="text-success" />
-              <Stat label="Incorrect" value={`${questions.length - score}`} tone="text-danger" />
-              <Stat label="Total Questions" value={`${questions.length}`} tone="text-ink" />
+              <Stat label={tr("बरोबर", "Correct")} value={num(score)} tone="text-success" />
+              <Stat label={tr("चूक", "Incorrect")} value={num(questions.length - score)} tone="text-danger" />
+              <Stat label={tr("एकूण प्रश्न", "Total Questions")} value={num(questions.length)} tone="text-ink" />
             </div>
 
             <div className="mt-4 flex items-center gap-1.5 text-[11px] text-muted bg-slate-50 px-3 py-1.5 rounded-lg border border-line">
               <Info className="size-3.5 text-slate-400" />
-              <span>Your score has been saved to your practice history</span>
+              <span>{tr("तुमचे गुण सराव इतिहासात जतन झाले आहेत", "Your score has been saved to your practice history")}</span>
             </div>
 
             <div className="mt-6 flex flex-wrap justify-center gap-3">
               <Button onClick={onRestart} leftIcon={<RotateCcw className="size-4" />} size="md">
-                Practice Again
+                {tr("पुन्हा सराव करा", "Practice Again")}
               </Button>
               <Link to="/student/dashboard">
                 <Button variant="secondary" size="md">
-                  Back to Dashboard
+                  {tr("मुख्य पानावर परत", "Back to Dashboard")}
                 </Button>
               </Link>
             </div>
@@ -587,8 +603,8 @@ function RunView({
         {/* Review Solutions with Explanations */}
         <div>
           <div className="mb-3 flex items-center justify-between">
-            <h3 className="text-base font-bold text-ink">Review Solutions & Explanations</h3>
-            <span className="text-xs text-muted">All {questions.length} questions answered</span>
+            <h3 className="text-base font-bold text-ink">{tr("उत्तरे व स्पष्टीकरण पाहा", "Review Solutions & Explanations")}</h3>
+            <span className="text-xs text-muted">{tr(`सर्व ${num(questions.length)} प्रश्न`, `All ${questions.length} questions answered`)}</span>
           </div>
           <div className="space-y-4">
             {questions.map((q, i) => (
@@ -612,19 +628,19 @@ function RunView({
   return (
     <div className="mx-auto max-w-2xl space-y-5">
       <div className="flex items-center justify-between">
-        <BackButton onClick={onRestart} label="Exit practice" />
+        <BackButton onClick={onRestart} label={tr("सराव थांबवा", "Exit practice")} />
         <Badge tone="brand">
-          {subject.short} · {difficulty === "combined" ? "Combined" : difficulty}
+          {subjName} · {levelName(difficulty)}
         </Badge>
       </div>
 
       <div className="bg-white p-4 rounded-2xl border border-line shadow-xs">
         <div className="mb-2 flex items-center justify-between text-xs font-semibold text-slate-600">
           <span className="text-brand-600">
-            Question {idx + 1} of {questions.length}
+            {tr(`प्रश्न ${num(idx + 1)} / ${num(questions.length)}`, `Question ${idx + 1} of ${questions.length}`)}
           </span>
           <span className="tabular text-slate-500">
-            {answered} of {questions.length} answered
+            {tr(`${num(questions.length)} पैकी ${num(answered)} सोडवले`, `${answered} of ${questions.length} answered`)}
           </span>
         </div>
         <ProgressBar value={((idx + 1) / questions.length) * 100} className="h-2" />
@@ -648,7 +664,7 @@ function RunView({
           onClick={() => setIdx(idx - 1)}
           leftIcon={<ArrowLeft className="size-4" />}
         >
-          Previous
+          {tr("मागील", "Previous")}
         </Button>
         {isLast ? (
           <Button
@@ -656,11 +672,11 @@ function RunView({
             leftIcon={<Check className="size-4" />}
             className="bg-emerald-600 hover:bg-emerald-700"
           >
-            Finish & See Score
+            {tr("संपवा व गुण पाहा", "Finish & See Score")}
           </Button>
         ) : (
           <Button onClick={() => setIdx(idx + 1)} rightIcon={<ArrowRight className="size-4" />}>
-            Next Question
+            {tr("पुढचा प्रश्न", "Next Question")}
           </Button>
         )}
       </div>

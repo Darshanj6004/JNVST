@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { relativeTime } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import { supabase } from "@/lib/supabaseClient";
+import { useNum, useT } from "@/lib/lang";
 import { useAuth } from "@/lib/auth";
 
 type DBNotification = {
@@ -25,6 +26,8 @@ const meta = {
 } as const;
 
 export default function Notifications() {
+  const tr = useT();
+  const num = useNum();
   const { user } = useAuth();
   const [items, setItems] = useState<DBNotification[]>([]);
   const [loading, setLoading] = useState(true);
@@ -99,8 +102,8 @@ export default function Notifications() {
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <PageHeader
-        title="Notifications"
-        description={unread > 0 ? `${unread} unread update${unread !== 1 ? "s" : ""}` : "You're all caught up"}
+        title={tr("सूचना", "Notifications")}
+        description={unread > 0 ? tr(`${num(unread)} नवीन सूचना`, `${unread} unread update${unread !== 1 ? "s" : ""}`) : tr("सर्व सूचना वाचल्या आहेत", "You're all caught up")}
         actions={
           <Button
             variant="secondary"
@@ -109,7 +112,7 @@ export default function Notifications() {
             disabled={unread === 0}
             onClick={markAllRead}
           >
-            Mark all read
+            {tr("सर्व वाचल्या", "Mark all read")}
           </Button>
         }
       />
@@ -117,14 +120,14 @@ export default function Notifications() {
       {loading ? (
         <div className="flex flex-col items-center justify-center gap-3 py-20 text-muted">
           <Bell className="size-8 animate-pulse text-brand-400" />
-          <p className="text-sm font-medium">Checking for updates…</p>
+          <p className="text-sm font-medium">{tr("सूचना तपासत आहे…", "Checking for updates…")}</p>
         </div>
       ) : items.length === 0 ? (
         <Card className="rounded-2xl border border-line bg-white shadow-xs">
           <EmptyState
             icon={<Bell className="size-8 text-slate-300" />}
-            title="All caught up!"
-            description="You don't have any unread notifications. Announcements and test reminders will appear right here."
+            title={tr("सर्व सूचना वाचल्या!", "All caught up!")}
+            description={tr("तुम्हाला नवीन सूचना नाहीत. परीक्षेच्या व शिक्षकांच्या सूचना येथे दिसतील.", "You don't have any unread notifications. Announcements and test reminders will appear right here.")}
           />
         </Card>
       ) : (
@@ -153,7 +156,7 @@ export default function Notifications() {
                       </p>
                       {!n.read && (
                         <span className="inline-flex items-center gap-1 rounded-full bg-brand-500 px-2 py-0.5 text-[10px] font-bold text-white shadow-xs shrink-0">
-                          New
+                          {tr("नवीन", "New")}
                         </span>
                       )}
                     </div>

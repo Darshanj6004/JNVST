@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { NavLink, useLocation } from "react-router";
 import { db } from "@/lib/api";
+import { useLang } from "@/lib/lang";
 import { GraduationCap, X } from "lucide-react";
 import type { NavSection } from "@/lib/nav";
 import { cn } from "@/lib/cn";
@@ -18,6 +19,8 @@ export function Sidebar({
   mobileOpen: boolean;
   onClose: () => void;
 }) {
+  const { lang } = useLang();
+  const mr = lang === "mr";
   const unread = useUnreadCount(nav.some((sec) => sec.items.some((i) => i.to === "/student/notifications")));
   const content = (
     <div className="flex h-full flex-col">
@@ -28,7 +31,7 @@ export function Sidebar({
           </span>
           <span className="flex flex-col leading-none">
             <span className="text-[15px] font-semibold tracking-tight text-ink">Navodaya</span>
-            <span className="text-[11px] font-medium text-muted">{portalLabel}</span>
+            <span className="text-[11px] font-medium text-muted">{mr && portalLabel === "Student Portal" ? "विद्यार्थी पोर्टल" : portalLabel}</span>
           </span>
         </NavLink>
         <button
@@ -45,7 +48,7 @@ export function Sidebar({
           <div key={si} className={cn(si > 0 && "mt-6")}>
             {section.heading && (
               <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                {section.heading}
+                {mr && section.headingMr ? section.headingMr : section.heading}
               </p>
             )}
             <div className="flex flex-col gap-1">
@@ -72,7 +75,7 @@ export function Sidebar({
                           isActive ? "text-brand-600" : "text-slate-400 group-hover:text-slate-600",
                         )}
                       />
-                      <span className="flex-1 truncate">{item.label}</span>
+                      <span className="flex-1 truncate">{mr && item.mr ? item.mr : item.label}</span>
                       {(item.to === "/student/notifications" ? unread : item.badge) ? (
                         <span className="rounded-full bg-brand-500 px-2 py-0.5 text-[11px] font-bold text-white tabular shadow-xs">
                           {item.to === "/student/notifications" ? unread : item.badge}
@@ -91,7 +94,7 @@ export function Sidebar({
         <div className="rounded-2xl bg-gradient-to-br from-brand-600 to-brand-800 p-4 text-white shadow-sm">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold uppercase tracking-wide text-brand-200">Exam Target</span>
-            <span className="rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-medium text-white">Class 4</span>
+            <span className="rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-medium text-white">{mr ? "इयत्ता ५" : "Class 5"}</span>
           </div>
           <p className="mt-1 text-sm font-bold text-white">JNVST 2027</p>
           <p className="mt-0.5 text-xs text-brand-100">Scholarship & Navodaya Prep</p>

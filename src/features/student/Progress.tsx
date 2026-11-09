@@ -18,6 +18,7 @@ import { AccuracyBars, BandDonut, ScoreTrend } from "@/charts";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/auth";
 
+import { useNum, useT } from "@/lib/lang";
 const bandTone = { strong: "success", average: "warning", weak: "danger" } as const;
 
 const SUBJECT_LABELS: Record<string, string> = {
@@ -38,6 +39,8 @@ type TopicRow = {
 type TrendPoint = { label: string; score: number; average: number };
 
 export default function Progress() {
+  const tr = useT();
+  const num = useNum();
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [testsTaken, setTestsTaken] = useState(0);
@@ -139,9 +142,9 @@ export default function Progress() {
   };
 
   const donut = [
-    { name: "Strong", value: bands.strong, key: "strong" },
-    { name: "Average", value: bands.average, key: "average" },
-    { name: "Weak", value: bands.weak, key: "weak" },
+    { name: tr("चांगले", "Strong"), value: bands.strong, key: "strong" },
+    { name: tr("ठीक", "Average"), value: bands.average, key: "average" },
+    { name: tr("कमकुवत", "Weak"), value: bands.weak, key: "weak" },
   ];
 
   const statsEmpty = testsTaken === 0 && !loading;
@@ -149,12 +152,12 @@ export default function Progress() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="My Progress Analytics"
-        description="Track your mock score growth and discover which topics to practice next."
+        title={tr("माझी प्रगती", "My Progress Analytics")}
+        description={tr("तुमचे गुण कसे वाढत आहेत आणि कोणत्या घटकांचा सराव हवा ते पाहा.", "Track your mock score growth and discover which topics to practice next.")}
         actions={
           <Link to="/student/practice">
             <Button leftIcon={<Dumbbell className="size-4" />}>
-              Practice Topics
+              {tr("घटकांचा सराव करा", "Practice Topics")}
             </Button>
           </Link>
         }
@@ -163,10 +166,10 @@ export default function Progress() {
       {/* Top stats */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
-          { label: "Overall Accuracy", value: loading ? "…" : overallAcc !== null ? `${overallAcc}%` : "—", icon: Target, accent: "bg-brand-50 text-brand-600" },
-          { label: "Tests Submitted", value: loading ? "…" : String(testsTaken), icon: FileText, accent: "bg-indigo-50 text-indigo-600" },
-          { label: "Best Score", value: loading ? "…" : bestScore !== null ? `${bestScore}%` : "—", icon: Trophy, accent: "bg-amber-50 text-amber-600" },
-          { label: "Topics Tracked", value: loading ? "…" : String(topics.length), icon: BookOpen, accent: "bg-emerald-50 text-emerald-600" },
+          { label: tr("एकूण अचूकता", "Overall Accuracy"), value: loading ? "…" : overallAcc !== null ? `${overallAcc}%` : "—", icon: Target, accent: "bg-brand-50 text-brand-600" },
+          { label: tr("दिलेल्या परीक्षा", "Tests Submitted"), value: loading ? "…" : String(testsTaken), icon: FileText, accent: "bg-indigo-50 text-indigo-600" },
+          { label: tr("सर्वोत्तम गुण", "Best Score"), value: loading ? "…" : bestScore !== null ? `${bestScore}%` : "—", icon: Trophy, accent: "bg-amber-50 text-amber-600" },
+          { label: tr("नोंदवलेले घटक", "Topics Tracked"), value: loading ? "…" : String(topics.length), icon: BookOpen, accent: "bg-emerald-50 text-emerald-600" },
         ].map((s) => (
           <Card key={s.label} className="rounded-2xl border border-line bg-white shadow-xs">
             <CardBody className="p-5">
@@ -186,8 +189,8 @@ export default function Progress() {
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2 rounded-2xl border border-line bg-white shadow-xs">
           <CardHeader
-            title="Score Progress Trend"
-            subtitle="Percentage scored per submitted test in chronological order"
+            title={tr("गुणांचा आलेख", "Score Progress Trend")}
+            subtitle={tr("प्रत्येक परीक्षेतील टक्के गुण, क्रमाने", "Percentage scored per submitted test in chronological order")}
           />
           <CardBody className="p-5">
             {loading ? (
@@ -198,15 +201,15 @@ export default function Progress() {
               <div>
                 <ScoreTrend data={trend} height={260} averageLabel="" />
                 <p className="mt-3 text-center text-xs text-muted">
-                  Showing your test performance percentage over time.
+                  {tr("प्रत्येक परीक्षेतील तुमचे टक्के गुण.", "Showing your test performance percentage over time.")}
                 </p>
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center h-64 text-center px-4">
                 <LineChart className="size-10 text-slate-300 mb-2" />
-                <p className="text-sm font-semibold text-ink">No test history yet</p>
+                <p className="text-sm font-semibold text-ink">{tr("अजून परीक्षांची नोंद नाही", "No test history yet")}</p>
                 <p className="text-xs text-muted max-w-xs mt-1">
-                  Your performance score curve will appear here after you submit your first mock test.
+                  {tr("पहिली परीक्षा दिल्यानंतर गुणांचा आलेख येथे दिसेल.", "Your performance score curve will appear here after you submit your first mock test.")}
                 </p>
               </div>
             )}
@@ -214,7 +217,7 @@ export default function Progress() {
         </Card>
 
         <Card className="rounded-2xl border border-line bg-white shadow-xs">
-          <CardHeader title="Topic Mastery" subtitle="Distribution across evaluated topics" />
+          <CardHeader title={tr("घटकांवरील पकड", "Topic Mastery")} subtitle={tr("चांगले / ठीक / कमकुवत घटक", "Distribution across evaluated topics")} />
           <CardBody className="p-5 flex flex-col items-center">
             {topics.length > 0 ? (
               <>
@@ -237,7 +240,7 @@ export default function Progress() {
             ) : (
               <div className="flex flex-col items-center justify-center h-48 text-center text-xs text-muted">
                 <Sparkles className="size-8 text-slate-300 mb-2" />
-                No topic data yet
+                {tr("अजून घटकनिहाय माहिती नाही", "No topic data yet")}
               </div>
             )}
           </CardBody>
@@ -247,7 +250,7 @@ export default function Progress() {
       {/* Subject accuracy */}
       {subjectAccuracy.length > 0 && (
         <Card className="rounded-2xl border border-line bg-white shadow-xs">
-          <CardHeader title="Accuracy by Subject" subtitle="Calculated from your verified answer submissions" />
+          <CardHeader title={tr("विषयनिहाय अचूकता", "Accuracy by Subject")} subtitle={tr("तुमच्या परीक्षांतील उत्तरांवरून", "Calculated from your verified answer submissions")} />
           <CardBody className="p-5">
             <AccuracyBars data={subjectAccuracy} height={220} />
           </CardBody>
@@ -261,30 +264,30 @@ export default function Progress() {
             <div className="flex size-14 items-center justify-center rounded-2xl bg-brand-50 text-brand-600">
               <Award className="size-7" />
             </div>
-            <p className="text-base font-bold text-ink">No progress recorded yet</p>
+            <p className="text-base font-bold text-ink">{tr("अजून प्रगतीची नोंद नाही", "No progress recorded yet")}</p>
             <p className="text-xs text-muted max-w-sm">
-              Complete your first scheduled mock test to begin building your personalised analytics profile.
+              {tr("पहिली परीक्षा दिल्यानंतर तुमची प्रगती येथे दिसू लागेल.", "Complete your first scheduled mock test to begin building your personalised analytics profile.")}
             </p>
             <Link to="/student/mock-tests" className="mt-2">
-              <Button size="sm">Go to Mock Tests</Button>
+              <Button size="sm">{tr("परीक्षांकडे जा", "Go to Mock Tests")}</Button>
             </Link>
           </CardBody>
         </Card>
       ) : (
         <Card className="rounded-2xl border border-line bg-white shadow-xs overflow-hidden">
           <CardHeader
-            title="Topic-Wise Performance Breakdown"
-            subtitle="Topics ordered from lowest to highest accuracy for targeted practice"
+            title={tr("घटकनिहाय कामगिरी", "Topic-Wise Performance Breakdown")}
+            subtitle={tr("सर्वांत कमी गुणांचे घटक आधी — त्यांचा सराव आधी करा", "Topics ordered from lowest to highest accuracy for targeted practice")}
           />
           <Table>
             <THead>
               <tr>
-                <TH>Topic Name</TH>
-                <TH>Subject</TH>
-                <TH>Questions Answered</TH>
-                <TH>Accuracy</TH>
-                <TH>Status</TH>
-                <TH className="text-right">Action</TH>
+                <TH>{tr("घटक", "Topic Name")}</TH>
+                <TH>{tr("विषय", "Subject")}</TH>
+                <TH>{tr("सोडवलेले प्रश्न", "Questions Answered")}</TH>
+                <TH>{tr("अचूकता", "Accuracy")}</TH>
+                <TH>{tr("स्थिती", "Status")}</TH>
+                <TH className="text-right">{tr("कृती", "Action")}</TH>
               </tr>
             </THead>
             <tbody>
@@ -301,7 +304,7 @@ export default function Progress() {
                   </TD>
                   <TD>
                     <Badge tone={bandTone[t.band]}>
-                      {t.band === "strong" ? "Strong" : t.band === "average" ? "Average" : "Needs Work"}
+                      {t.band === "strong" ? tr("चांगले", "Strong") : t.band === "average" ? tr("ठीक", "Average") : tr("सराव हवा", "Needs Work")}
                     </Badge>
                   </TD>
                   <TD className="text-right">

@@ -178,3 +178,10 @@ export function ago(iso: string | null | undefined): string {
   if (days < 30) return `${days} days ago`;
   return new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
 }
+
+/** Marathi subject names (student portal). */
+export const SUBJECT_LABELS_MR: Record<string, string> = {
+  mental_ability: "बुद्धिमत्ता चाचणी",
+  arithmetic: "अंकगणित",
+  language: "भाषा",
+};
