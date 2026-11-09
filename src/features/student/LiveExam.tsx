@@ -292,13 +292,16 @@ export default function LiveExam() {
           )}
           <LangToggle className="hidden sm:inline-flex" />
           <TimerBadge remaining={remaining} total={durationSec} />
-          <Button
-            onClick={() => setConfirmOpen(true)}
-            size="md"
-            className="hidden sm:inline-flex bg-emerald-600 hover:bg-emerald-700 font-bold shadow-xs"
-          >
-            {t("परीक्षा सबमिट करा", "Submit Test")}
-          </Button>
+          {/* Phones use the sticky submit bar at the bottom instead */}
+          <span className="hidden sm:inline-flex">
+            <Button
+              onClick={() => setConfirmOpen(true)}
+              size="md"
+              className="bg-emerald-600 hover:bg-emerald-700 font-bold shadow-xs"
+            >
+              {t("परीक्षा सबमिट करा", "Submit Test")}
+            </Button>
+          </span>
         </div>
       </header>
 

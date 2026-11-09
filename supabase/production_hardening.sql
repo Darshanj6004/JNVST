@@ -1047,3 +1047,57 @@ begin
     order by ea.score desc, p.full_name;
 end;
 $$;
+
+-- ----------------------------------------------------------------
+-- 11. SECURITY TIGHTENING (defence in depth)
+-- ----------------------------------------------------------------
+
+-- 11a. Logged-out visitors may only call the two login look-ups.
+--      (Every function already checks the role; this removes the surface.)
+revoke execute on all functions in schema public from anon;
+revoke execute on all functions in schema public from public;
+grant execute on all functions in schema public to authenticated;
+grant execute on function public.get_student_email(text) to anon;
+grant execute on function public.get_teacher_email_by_username(text) to anon;
+grant execute on function public.my_role() to anon; -- used inside row-level policies
+-- Internal helpers stay closed to everyone (re-revoke after the blanket grant above).
+revoke execute on function public._grade_attempt(uuid, boolean) from authenticated;
+revoke execute on function public._grade_expired_attempts() from authenticated;
+revoke execute on function public._create_auth_user(text, text, jsonb, jsonb) from authenticated;
+-- Functions created later are not executable by anon/public by default.
+alter default privileges in schema public revoke execute on functions from public;
+alter default privileges in schema public revoke execute on functions from anon;
+
+-- 11b. Which questions belong to which test is teacher-only.
+--      Students receive their paper through get_exam_paper() during the exam.
+drop policy if exists "Anyone authenticated can read mock_test_questions" on public.mock_test_questions;
+
+-- 11c. Practice records must be realistic (a session has 1–100 questions).
+alter table public.practice_attempts drop constraint if exists practice_attempts_sane;
+alter table public.practice_attempts add constraint practice_attempts_sane
+  check (total between 1 and 100 and correct between 0 and total) not valid;
+
+-- 11d. Students may only change harmless fields of their own profile
+--      (already enforced by protect_profile_fields); teachers cannot be
+--      edited by other users through the API.
+create or replace function public.protect_profile_fields()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is null then return new; end if;
+  if new.role is distinct from old.role then
+    raise exception 'Changing account role is not allowed';
+  end if;
+  if old.role = 'teacher' and old.id <> auth.uid() then
+    raise exception 'Teacher accounts can only be changed by their owner';
+  end if;
+  if public.my_role() is distinct from 'teacher' then
+    if new.status      is distinct from old.status
+    or new.username    is distinct from old.username
+    or new.roll_number is distinct from old.roll_number
+    or new.class_name  is distinct from old.class_name then
+      raise exception 'Only a teacher can change these details';
+    end if;
+  end if;
+  return new;
+end;
+$$;

@@ -98,6 +98,28 @@ papers with *Import Excel* and fill the Source column (e.g. `JNVST 2024`).
 - Deactivated students cannot log in.
 - Idle sessions log out automatically (configurable in Settings). Logout never happens during an exam.
 
+## Security checklist
+
+Built into the database (`production_hardening.sql`):
+- Row-level security on every table; students see only their own data.
+- Logged-out visitors can call only the two login look-ups; all other functions need a login,
+  and teacher functions check the teacher role on the server.
+- Nobody can change an account's role through the app; students cannot edit their roll number,
+  class or status; teacher accounts can only be edited by their owner.
+- Exam attempts and scores can only be created by the server; answers can only be written while
+  the attempt is open; which questions are in a test is visible only to teachers.
+- `seed_teacher.sql` (public demo password) refuses to run once any teacher exists.
+
+Built into the website (`vercel.json` headers): Content-Security-Policy, X-Frame-Options DENY
+(no embedding / click-jacking), nosniff, strict referrer policy, HSTS, camera/mic/location disabled.
+
+**Do these once in the Supabase dashboard:**
+- [ ] Authentication → Providers → Email → **turn OFF "Allow new users to sign up"**.
+- [ ] Authentication → Policies/Passwords → minimum password length **8**.
+- [ ] Never put the `service_role` key in the website or in Git — only the anon/publishable key.
+- [ ] Change the teacher password after the first login and do not share it.
+- [ ] Database → Backups: confirm daily backups are on (download one before each big exam).
+
 ## 6. Exam-day checklist
 
 - [ ] Test the lab internet; open the site on one machine and log in as a student.

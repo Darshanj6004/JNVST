@@ -72,7 +72,8 @@ export function useNum() {
 export function LangToggle({ className = "" }: { className?: string }) {
   const { lang, setLang } = useLang();
   return (
-    <div className={`inline-flex rounded-xl bg-slate-100 p-0.5 text-xs font-semibold ${className}`} role="group" aria-label="Language">
+    <span className={className || "inline-flex"}>
+    <div className="inline-flex rounded-xl bg-slate-100 p-0.5 text-xs font-semibold" role="group" aria-label="Language">
       {(["mr", "en"] as Lang[]).map((l) => (
         <button
           key={l}
@@ -85,5 +86,6 @@ export function LangToggle({ className = "" }: { className?: string }) {
         </button>
       ))}
     </div>
+    </span>
   );
 }

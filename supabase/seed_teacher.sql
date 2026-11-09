@@ -1,5 +1,8 @@
 -- ================================================================
--- SEED: Create Teacher Account (Clean Supabase version)
+-- SEED: Create a FIRST teacher account for a brand-new installation only.
+-- !! The password below is public (it is in Git). Change it immediately after
+-- !! the first login (Settings → Change password), or use the private
+-- !! reset script instead. Skipped automatically if a teacher already exists.
 -- Run this in Supabase Dashboard → SQL Editor → New Query
 -- ================================================================
 
@@ -9,6 +12,12 @@ do $$
 declare
   new_user_id uuid := gen_random_uuid();
 begin
+  -- SAFETY: this file contains a publicly known demo password. It only runs on a
+  -- brand-new database. If any teacher already exists, it does nothing.
+  if exists (select 1 from public.profiles where role = 'teacher') then
+    raise notice 'A teacher account already exists — seed_teacher.sql skipped.';
+    return;
+  end if;
   if not exists (select 1 from auth.users where email = 'teacher_sunita@jnvst.local') then
     insert into auth.users (
       id,

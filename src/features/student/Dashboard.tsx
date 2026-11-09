@@ -394,8 +394,8 @@ export default function StudentDashboard() {
             <p className="mt-1 text-xs text-muted font-medium">{tr("सोडवलेले प्रश्न", "Questions Attempted")}</p>
             <p className="mt-2 text-[11px] font-medium text-brand-600">
               {submittedAttempts.length > 0
-                ? `Across ${submittedAttempts.length} completed mock ${submittedAttempts.length === 1 ? "test" : "tests"}`
-                : "Start practicing today"}
+                ? tr(`${num(submittedAttempts.length)} परीक्षांमध्ये`, `Across ${submittedAttempts.length} completed mock ${submittedAttempts.length === 1 ? "test" : "tests"}`)
+                : tr("आजच सराव सुरू करा", "Start practicing today")}
             </p>
           </CardBody>
         </Card>
