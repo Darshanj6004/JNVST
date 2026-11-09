@@ -14,6 +14,7 @@ import * as XLSX from "xlsx";
 import { Badge, Button, Card, CardBody, CardHeader, Table, TH, THead, TR, TD, useToast } from "@/ui";
 import { PageHeader } from "@/components/PageHeader";
 import { supabase } from "@/lib/supabaseClient";
+import { friendlyError } from "@/lib/api";
 import { cn } from "@/lib/cn";
 
 // ─── Subject code mapping ─────────────────────────────────────────────────────
@@ -45,12 +46,19 @@ type ParsedRow = {
   correct_answer: string;
   marks: number;
   explanation: string;
+  source: string;
+  image_url: string;
   ok: boolean;
   errors: string[];
 };
 
 function validateRow(raw: Record<string, string>, rowNum: number): ParsedRow {
-  const get = (key: string) => (raw[key] ?? "").trim();
+  // Accept "Option A", "option-a", "OPTION_A" … and numeric cells.
+  const norm: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(raw)) norm[k.trim().toLowerCase().replace(/[\s-]+/g, "_")] = v;
+  if (norm.correct_option !== undefined && norm.correct_answer === undefined) norm.correct_answer = norm.correct_option;
+  if (norm.question_text !== undefined && norm.question === undefined) norm.question = norm.question_text;
+  const get = (key: string) => String(norm[key] ?? "").trim();
 
   const subject = get("subject");
   const topic = get("topic");
@@ -63,6 +71,8 @@ function validateRow(raw: Record<string, string>, rowNum: number): ParsedRow {
   const correct_answer = get("correct_answer").toUpperCase();
   const marks = parseFloat(get("marks") || "1.25");
   const explanation = get("explanation") || "";
+  const source = get("source");
+  const image_url = get("image_url");
 
   const errors: string[] = [];
   if (!SUBJECT_MAP[subject.toLowerCase()]) errors.push(`Unknown subject "${subject}"`);
@@ -86,6 +96,8 @@ function validateRow(raw: Record<string, string>, rowNum: number): ParsedRow {
     correct_answer,
     marks: isNaN(marks) ? 1.25 : marks,
     explanation,
+    source,
+    image_url,
     ok: errors.length === 0,
     errors,
   };
@@ -94,10 +106,10 @@ function validateRow(raw: Record<string, string>, rowNum: number): ParsedRow {
 // ─── Template download ────────────────────────────────────────────────────────
 function downloadTemplate() {
   const ws = XLSX.utils.aoa_to_sheet([
-    ["subject", "topic", "difficulty", "question", "option_a", "option_b", "option_c", "option_d", "correct_answer", "marks", "explanation"],
-    ["Mental Ability", "Analogy", "easy", "Hand is to Glove as Foot is to ?", "Sock", "Boot", "Shoe", "Hat", "C", "1.25", "A shoe covers the foot just as a glove covers the hand."],
-    ["Arithmetic", "Number System", "easy", "What is the place value of 5 in 3456?", "5", "50", "500", "5000", "B", "1.25", "5 is in the tens place, so its value is 50."],
-    ["Language", "Vocabulary", "medium", "Synonym of 'Happy'?", "Sad", "Joyful", "Angry", "Tired", "B", "1.25", "Joyful means feeling great happiness."],
+    ["subject", "topic", "difficulty", "question", "option_a", "option_b", "option_c", "option_d", "correct_answer", "marks", "explanation", "source", "image_url"],
+    ["Mental Ability", "Analogy", "easy", "Hand is to Glove as Foot is to ?", "Sock", "Boot", "Shoe", "Hat", "C", "1.25", "A shoe covers the foot just as a glove covers the hand.", "", ""],
+    ["Arithmetic", "Number System", "easy", "What is the place value of 5 in 3456?", "5", "50", "500", "5000", "B", "1.25", "5 is in the tens place, so its value is 50.", "JNVST 2024", ""],
+    ["Language", "Grammar & Vocabulary", "medium", "Synonym of 'Happy'?", "Sad", "Joyful", "Angry", "Tired", "B", "1.25", "Joyful means feeling great happiness.", "", ""],
   ]);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Questions");
@@ -145,26 +157,37 @@ export default function ExcelImport() {
     setImporting(true);
     let successCount = 0;
 
-    for (const row of valid) {
-      const { error } = await supabase.rpc("upsert_question", {
-        p_subject_code: SUBJECT_MAP[row.subject.toLowerCase()],
-        p_topic_name: row.topic,
-        p_difficulty: row.difficulty,
-        p_question_text: row.question,
-        p_option_a: row.option_a,
-        p_option_b: row.option_b,
-        p_option_c: row.option_c,
-        p_option_d: row.option_d,
-        p_correct_option: row.correct_answer,
-        p_marks: row.marks,
-        p_explanation: row.explanation || null,
-        p_image_url: null,
-        p_question_id: null,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      } as any);
-
-      if (!error) successCount++;
+    const failed: string[] = [];
+    // Save in small parallel batches (fast but gentle on the free tier).
+    for (let i = 0; i < valid.length; i += 8) {
+      const batch = valid.slice(i, i + 8);
+      const results = await Promise.all(
+        batch.map((row) =>
+          supabase.rpc("upsert_question", {
+            p_subject_code: SUBJECT_MAP[row.subject.toLowerCase()],
+            p_topic_name: row.topic,
+            p_difficulty: row.difficulty,
+            p_question_text: row.question,
+            p_option_a: row.option_a,
+            p_option_b: row.option_b,
+            p_option_c: row.option_c,
+            p_option_d: row.option_d,
+            p_correct_option: row.correct_answer,
+            p_marks: row.marks,
+            p_explanation: row.explanation || null,
+            p_image_url: row.image_url || null,
+            p_question_id: null,
+            p_source: row.source || null,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          } as any),
+        ),
+      );
+      results.forEach((r, j) => {
+        if (r.error) failed.push(`Row ${batch[j].row}: ${friendlyError(r.error.message)}`);
+        else successCount++;
+      });
     }
+    if (failed.length > 0) console.warn("Import failures", failed);
 
     setImporting(false);
     setImportedCount(successCount);
@@ -174,7 +197,7 @@ export default function ExcelImport() {
       type: successCount > 0 ? "success" : "error",
       title: `${successCount} question${successCount !== 1 ? "s" : ""} imported`,
       message: successCount < valid.length
-        ? `${valid.length - successCount} failed to save.`
+        ? `${valid.length - successCount} failed. ${failed.slice(0, 3).join(" · ")}`
         : "All questions are now in the bank.",
     });
 

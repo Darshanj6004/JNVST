@@ -3,7 +3,8 @@ import { useNavigate } from "react-router";
 import { ArrowUpRight, RefreshCw, TrendingDown, TriangleAlert } from "lucide-react";
 import { Avatar, Button, Card, CardBody, ProgressBar, Table, TH, THead, TR, TD } from "@/ui";
 import { PageHeader } from "@/components/PageHeader";
-import { supabase } from "@/lib/supabaseClient";
+import { finalizeExpiredAttempts, rpc, type StudentSummary } from "@/lib/api";
+import { useSettings } from "@/lib/useSettings";
 import { cn } from "@/lib/cn";
 
 type WeakStudent = {
@@ -21,66 +22,31 @@ export default function WeakStudents() {
   const [students, setStudents] = useState<WeakStudent[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const settings = useSettings();
+
   const load = useCallback(async () => {
     setLoading(true);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const sb = supabase as any;
-
-    // Get all submitted attempts grouped by student
-    const { data } = await sb
-      .from("exam_attempts")
-      .select("student_id, score, mock_tests(total_marks), profiles(full_name, roll_number, class_name, avatar_color)")
-      .eq("status", "submitted");
-
-    if (!data) { setLoading(false); return; }
-
-    // Aggregate per student
-    const map: Record<string, {
-      full_name: string;
-      roll_number: string | null;
-      class_name: string | null;
-      avatar_color: string;
-      totalPct: number;
-      count: number;
-    }> = {};
-
-    for (const a of data as {
-      student_id: string;
-      score: number;
-      mock_tests: { total_marks: number };
-      profiles: { full_name: string; roll_number: string | null; class_name: string | null; avatar_color: string };
-    }[]) {
-      if (!map[a.student_id]) {
-        map[a.student_id] = {
-          full_name: a.profiles?.full_name ?? "Unknown",
-          roll_number: a.profiles?.roll_number ?? null,
-          class_name: a.profiles?.class_name ?? null,
-          avatar_color: a.profiles?.avatar_color ?? "#2563EB",
-          totalPct: 0,
-          count: 0,
-        };
-      }
-      const totalMarks = a.mock_tests?.total_marks ?? 100;
-      map[a.student_id].totalPct += (a.score / totalMarks) * 100;
-      map[a.student_id].count++;
+    await finalizeExpiredAttempts();
+    try {
+      const rows = await rpc<StudentSummary[]>("class_student_summary");
+      const weak: WeakStudent[] = (rows ?? [])
+        .filter((r) => r.tests_taken > 0 && Number(r.avg_pct ?? 0) < settings.weak_threshold)
+        .map((r) => ({
+          student_id: r.student_id,
+          full_name: r.full_name,
+          roll_number: r.roll_number,
+          class_name: r.class_name,
+          avatar_color: r.avatar_color,
+          avg_score_pct: Math.round(Number(r.avg_pct ?? 0)),
+          attempts: r.tests_taken,
+        }))
+        .sort((x, y) => x.avg_score_pct - y.avg_score_pct);
+      setStudents(weak);
+    } catch {
+      setStudents([]);
     }
-
-    const weak: WeakStudent[] = Object.entries(map)
-      .map(([id, s]) => ({
-        student_id: id,
-        full_name: s.full_name,
-        roll_number: s.roll_number,
-        class_name: s.class_name,
-        avatar_color: s.avatar_color,
-        avg_score_pct: Math.round(s.totalPct / s.count),
-        attempts: s.count,
-      }))
-      .filter((s) => s.avg_score_pct < 60)
-      .sort((a, b) => a.avg_score_pct - b.avg_score_pct);
-
-    setStudents(weak);
     setLoading(false);
-  }, []);
+  }, [settings.weak_threshold]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -88,7 +54,7 @@ export default function WeakStudents() {
     <div className="space-y-6">
       <PageHeader
         title="Weak students"
-        description="Students averaging below 60% across submitted mock tests."
+        description={`Students averaging below ${settings.weak_threshold}% across submitted mock tests.`}
         actions={
           <Button
             variant="ghost"
@@ -107,7 +73,7 @@ export default function WeakStudents() {
             </span>
             <div>
               <p className="text-2xl font-semibold text-ink tabular">{students.length}</p>
-              <p className="text-[13px] text-muted">Need attention (&lt;60%)</p>
+              <p className="text-[13px] text-muted">Need attention (&lt;{settings.weak_threshold}%)</p>
             </div>
           </CardBody>
         </Card>

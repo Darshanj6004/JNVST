@@ -1,21 +1,22 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useParams } from "react-router";
-import { CheckCircle2, Download, Home, Loader2, RotateCcw, XCircle } from "lucide-react";
+import { CheckCircle2, Download, Home, Loader2, Lock, RotateCcw, XCircle } from "lucide-react";
 import { Badge, Button, Card, CardBody, CardHeader, ProgressBar } from "@/ui";
 import { PageHeader } from "@/components/PageHeader";
 import { ProgressRing } from "@/charts";
 import { pct } from "@/lib/format";
-import { supabase } from "@/lib/supabaseClient";
+import { db, rpc, SUBJECT_LABELS, type TopicStat } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { cn } from "@/lib/cn";
 import React from "react";
 
 interface ResultState {
   score: number;
-  total: number;
-  correct: number;
-  totalQ: number;
+  total_marks: number;
+  total_correct: number;
+  total_attempted: number;
+  total_questions: number;
   title: string;
-  attemptId?: string;
 }
 
 type SectionBreakdown = {
@@ -25,96 +26,121 @@ type SectionBreakdown = {
   marks: number;
 };
 
-type DBAnswer = {
-  is_correct: boolean | null;
+type ReviewRow = {
+  order_index: number;
+  question_text: string;
+  option_a: string;
+  option_b: string;
+  option_c: string;
+  option_d: string;
+  image_url: string | null;
+  marks: number;
+  subject_name: string;
+  topic_name: string;
   selected_option: string | null;
-  questions: {
-    marks: number;
-    subject_code: string;
-  };
-};
-
-const SUBJECT_NAMES: Record<string, string> = {
-  mental_ability: "Mental Ability",
-  arithmetic: "Arithmetic",
-  language: "Language",
+  correct_option: string;
+  is_correct: boolean;
+  explanation: string | null;
 };
 
 export default function Result() {
   const { id } = useParams();
   const location = useLocation();
   const { user } = useAuth();
-  const state = location.state as ResultState | null;
+  const navState = location.state as ResultState | null;
 
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [summary, setSummary] = useState<ResultState | null>(navState);
+  const [testStatus, setTestStatus] = useState<string>("");
   const [sections, setSections] = useState<SectionBreakdown[]>([]);
-  const [title, setTitle] = useState(state?.title ?? "Mock Test");
+  const [review, setReview] = useState<ReviewRow[]>([]);
+  const [showReview, setShowReview] = useState(false);
+  const [missing, setMissing] = useState(false);
 
-  const score = state?.score ?? 0;
-  const total = state?.total ?? 100;
-  const correct = state?.correct ?? 0;
-  const totalQ = state?.totalQ ?? 0;
-  const percentage = pct(score, total);
-
-  // Load detailed answer breakdown from Supabase
   useEffect(() => {
     if (!user?.id || !id) return;
-
     (async () => {
       setLoading(true);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const sb = supabase as any;
+      const [{ data: attempt }, { data: testData }] = await Promise.all([
+        db
+          .from("exam_attempts")
+          .select("score, total_correct, total_attempted, status")
+          .eq("student_id", user.id)
+          .eq("mock_test_id", id)
+          .maybeSingle(),
+        db.from("mock_tests").select("title, total_marks, total_questions, status").eq("id", id).maybeSingle(),
+      ]);
 
-      // Get attempt for this student + test
-      const { data: attempt } = await sb
-        .from("exam_attempts")
-        .select("id, score, total_correct, total_attempted")
-        .eq("student_id", user.id)
-        .eq("mock_test_id", id)
-        .maybeSingle();
+      if (!attempt || attempt.status !== "submitted" || !testData) {
+        setMissing(true);
+        setLoading(false);
+        return;
+      }
+      setTestStatus(testData.status);
+      setSummary({
+        score: Number(attempt.score ?? 0),
+        total_marks: Number(testData.total_marks),
+        total_correct: attempt.total_correct ?? 0,
+        total_attempted: attempt.total_attempted ?? 0,
+        total_questions: testData.total_questions ?? 0,
+        title: testData.title,
+      });
 
-      if (!attempt) { setLoading(false); return; }
-
-      // Get test title
-      const { data: testData } = await sb
-        .from("mock_tests")
-        .select("title")
-        .eq("id", id)
-        .single();
-      if (testData?.title) setTitle(testData.title);
-
-      // Get all answers with question details
-      const { data: answers } = await sb
-        .from("exam_answers")
-        .select("is_correct, selected_option, questions(marks, subject_code)")
-        .eq("attempt_id", attempt.id);
-
-      if (!answers) { setLoading(false); return; }
-
-      // Build section breakdown
-      const map: Record<string, { correct: number; total: number; marks: number }> = {};
-      for (const a of answers as DBAnswer[]) {
-        const code = a.questions?.subject_code ?? "other";
-        if (!map[code]) map[code] = { correct: 0, total: 0, marks: 0 };
-        map[code].total++;
-        if (a.is_correct) {
-          map[code].correct++;
-          map[code].marks += a.questions?.marks ?? 0;
+      try {
+        const stats = await rpc<TopicStat[]>("my_topic_stats", { p_test_id: id });
+        const map: Record<string, SectionBreakdown> = {};
+        for (const s of stats ?? []) {
+          const key = s.subject_code;
+          map[key] ??= { name: SUBJECT_LABELS[key] ?? s.subject_name, correct: 0, total: 0, marks: 0 };
+          map[key].correct += s.correct;
+          map[key].total += s.total;
+          map[key].marks += Number(s.marks_earned);
         }
+        setSections(Object.values(map).map((s) => ({ ...s, marks: Math.round(s.marks * 100) / 100 })));
+      } catch {
+        setSections([]);
       }
 
-      setSections(
-        Object.entries(map).map(([code, v]) => ({
-          name: SUBJECT_NAMES[code] ?? code,
-          correct: v.correct,
-          total: v.total,
-          marks: Math.round(v.marks * 100) / 100,
-        }))
-      );
-
+      if (testData.status === "completed") {
+        try {
+          setReview((await rpc<ReviewRow[]>("get_attempt_review", { p_test_id: id })) ?? []);
+        } catch {
+          setReview([]);
+        }
+      }
       setLoading(false);
     })();
   }, [id, user?.id]);
+
+  if (loading && !summary) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <Loader2 className="size-8 animate-spin text-brand-400" />
+      </div>
+    );
+  }
+
+  if (missing && !summary) {
+    return (
+      <Card className="mx-auto max-w-lg">
+        <CardBody className="py-12 text-center space-y-3">
+          <p className="text-base font-bold text-ink">No result found for this test</p>
+          <p className="text-sm text-muted">You haven't submitted this test yet.</p>
+          <Link to="/student/mock-tests">
+            <Button variant="secondary">Back to Mock Tests</Button>
+          </Link>
+        </CardBody>
+      </Card>
+    );
+  }
+
+  const title = summary?.title ?? "Mock Test";
+  const score = Math.round((summary?.score ?? 0) * 100) / 100;
+  const total = summary?.total_marks ?? 100;
+  const correct = summary?.total_correct ?? 0;
+  const totalQ = summary?.total_questions ?? 0;
+  const attempted = summary?.total_attempted ?? 0;
+  const percentage = pct(score, total);
 
   return (
     <div className="space-y-6">
@@ -185,7 +211,7 @@ export default function Result() {
         <Card className="lg:col-span-2 rounded-2xl border border-line bg-white shadow-xs">
           <CardHeader
             title="Performance Summary"
-            subtitle={`${totalQ} total questions · No negative marking`}
+            subtitle={`${totalQ} questions · ${attempted} attempted · No negative marking`}
           />
           <CardBody className="p-6 space-y-6">
             <div className="grid gap-4 sm:grid-cols-3">
@@ -197,8 +223,8 @@ export default function Result() {
               />
               <SummaryTile
                 icon={<XCircle className="size-5" />}
-                label="Incorrect Answers"
-                value={Math.max(0, totalQ - correct)}
+                label={`Wrong · ${Math.max(0, totalQ - attempted)} skipped`}
+                value={Math.max(0, attempted - correct)}
                 tone="danger"
               />
               <SummaryTile
@@ -247,6 +273,90 @@ export default function Result() {
           </CardBody>
         </Card>
       </div>
+
+      {/* Answer review */}
+      <Card className="rounded-2xl border border-line bg-white shadow-xs print:break-before-page">
+        <CardHeader
+          title="Answer review"
+          subtitle={
+            testStatus === "completed"
+              ? "See the correct answer and explanation for every question"
+              : "Available after your teacher closes this test for everyone"
+          }
+          action={
+            testStatus === "completed" && review.length > 0 ? (
+              <Button size="sm" variant="secondary" onClick={() => setShowReview((v) => !v)}>
+                {showReview ? "Hide answers" : "Show answers"}
+              </Button>
+            ) : undefined
+          }
+        />
+        {testStatus !== "completed" ? (
+          <CardBody className="flex items-center gap-3 text-sm text-muted">
+            <Lock className="size-4 shrink-0" />
+            Other students may still be writing this test, so the answer key is locked for now.
+          </CardBody>
+        ) : (
+          showReview && (
+            <CardBody className="space-y-4">
+              {review.map((r, i) => {
+                const opts = [
+                  ["A", r.option_a],
+                  ["B", r.option_b],
+                  ["C", r.option_c],
+                  ["D", r.option_d],
+                ] as const;
+                return (
+                  <div key={i} className="rounded-xl border border-line p-4 break-inside-avoid">
+                    <div className="mb-2 flex flex-wrap items-center gap-2 text-xs">
+                      <span className="font-bold text-ink">Q{i + 1}.</span>
+                      <Badge tone="neutral">{r.subject_name}</Badge>
+                      <span className="text-muted">{r.topic_name}</span>
+                      <Badge tone={r.is_correct ? "success" : r.selected_option ? "danger" : "warning"} className="ml-auto">
+                        {r.is_correct ? "Correct" : r.selected_option ? "Wrong" : "Not answered"}
+                      </Badge>
+                    </div>
+                    <p className="text-sm font-semibold text-ink whitespace-pre-wrap">{r.question_text}</p>
+                    {r.image_url && (
+                      <img src={r.image_url} alt="" className="mt-2 max-h-48 rounded-lg border border-line object-contain" />
+                    )}
+                    <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                      {opts.map(([letter, text]) => {
+                        const isKey = letter === r.correct_option;
+                        const isMine = letter === r.selected_option;
+                        return (
+                          <div
+                            key={letter}
+                            className={cn(
+                              "flex items-center gap-2 rounded-lg border px-3 py-2 text-sm",
+                              isKey
+                                ? "border-emerald-300 bg-emerald-50 text-emerald-900"
+                                : isMine
+                                  ? "border-red-300 bg-red-50 text-red-900"
+                                  : "border-line text-slate-700",
+                            )}
+                          >
+                            <span className="font-bold">{letter}.</span>
+                            <span className="flex-1">{text}</span>
+                            {isKey && <CheckCircle2 className="size-4 text-emerald-600" />}
+                            {isMine && !isKey && <XCircle className="size-4 text-red-600" />}
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {r.explanation && (
+                      <p className="mt-3 rounded-lg bg-brand-50/60 p-3 text-[13px] text-brand-900">
+                        <strong>Explanation: </strong>
+                        {r.explanation}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+            </CardBody>
+          )
+        )}
+      </Card>
 
       <div className="flex flex-wrap justify-center gap-3 pt-2">
         <Link to="/student/practice">

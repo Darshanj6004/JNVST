@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from "react-router";
 import { ArrowLeft, Check, Eye, Image, ImagePlus, Loader2, Save, X } from "lucide-react";
 import { Badge, Button, Card, CardBody, CardHeader, Field, Input, Select, Textarea, useToast } from "@/ui";
 import { PageHeader } from "@/components/PageHeader";
-import { subjects } from "@/data/subjects";
+import { useSubjects } from "@/lib/useSubjects";
 import { cn } from "@/lib/cn";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -167,6 +167,7 @@ type ExistingQ = {
   marks: number;
   explanation: string | null;
   image_url: string | null;
+  source: string | null;
 };
 
 const codeById: Record<string, string> = {
@@ -185,12 +186,14 @@ export default function AddEditQuestion() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const isEdit = Boolean(id);
+  const { subjects } = useSubjects();
 
   const [loadingData, setLoadingData] = useState(isEdit);
   const [saving, setSaving] = useState(false);
 
-  const [subjectId, setSubjectId] = useState(subjects[0].id);
-  const [topicName, setTopicName] = useState(subjects[0].topics[0].name);
+  const [subjectId, setSubjectId] = useState("mat");
+  const [topicName, setTopicName] = useState("");
+  const [source, setSource] = useState("");
   const [difficulty, setDifficulty] = useState<"easy" | "medium" | "hard">("easy");
   const [text, setText] = useState("");
   const [imageUrl, setImageUrl] = useState("");
@@ -215,7 +218,8 @@ export default function AddEditQuestion() {
           return;
         }
         const q = data as ExistingQ;
-        setSubjectId(idByCode[q.subject_code] ?? subjects[0].id);
+        setSubjectId(idByCode[q.subject_code] ?? "mat");
+        setSource(q.source ?? "");
         setTopicName(q.topic_name);
         setDifficulty(q.difficulty);
         setText(q.question_text);
@@ -229,6 +233,10 @@ export default function AddEditQuestion() {
   }, [id, navigate, toast]);
 
   const topics = subjects.find((s) => s.id === subjectId)?.topics ?? [];
+  // Default the topic once DB topics arrive (new question only).
+  useEffect(() => {
+    if (!isEdit && !topicName && topics.length > 0) setTopicName(topics[0].name);
+  }, [isEdit, topicName, topics]);
 
   function setOptionText(i: number, v: string) {
     setOptions((o) => o.map((x, xi) => (xi === i ? v : x)));
@@ -237,6 +245,10 @@ export default function AddEditQuestion() {
   const save = async () => {
     if (!text.trim()) {
       toast({ type: "error", title: "Question text required", message: "Please enter the question." });
+      return;
+    }
+    if (!topicName.trim()) {
+      toast({ type: "error", title: "Topic required", message: "Choose or type a topic." });
       return;
     }
     if (options.some((o) => !o.trim())) {
@@ -259,6 +271,7 @@ export default function AddEditQuestion() {
       p_explanation: explanation.trim() || null,
       p_image_url: imageUrl.trim() || null,
       p_question_id: id ?? null,
+      p_source: source.trim() || null,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any);
 
@@ -311,7 +324,7 @@ export default function AddEditQuestion() {
                   onChange={(e) => {
                     setSubjectId(e.target.value);
                     const t = subjects.find((s) => s.id === e.target.value)?.topics[0];
-                    if (t) setTopicName(t.name);
+                    setTopicName(t?.name ?? "");
                   }}
                 >
                   {subjects.map((s) => (
@@ -321,14 +334,18 @@ export default function AddEditQuestion() {
                   ))}
                 </Select>
               </Field>
-              <Field label="Topic">
-                <Select value={topicName} onChange={(e) => setTopicName(e.target.value)}>
+              <Field label="Topic" hint="pick or type a new one">
+                <Input
+                  list="topic-options"
+                  value={topicName}
+                  onChange={(e) => setTopicName(e.target.value)}
+                  placeholder="e.g. Analogy"
+                />
+                <datalist id="topic-options">
                   {topics.map((t) => (
-                    <option key={t.id} value={t.name}>
-                      {t.name}
-                    </option>
+                    <option key={t.id} value={t.name} />
                   ))}
-                </Select>
+                </datalist>
               </Field>
               <Field label="Difficulty">
                 <Select
@@ -401,6 +418,16 @@ export default function AddEditQuestion() {
                   />
                 </Field>
               </div>
+            </CardBody>
+          </Card>
+
+          <Card>
+            <CardHeader
+              title="Source (optional)"
+              subtitle="Tag questions from a previous year paper, e.g. JNVST 2024. Tagged papers can be scheduled as a full test."
+            />
+            <CardBody>
+              <Input value={source} onChange={(e) => setSource(e.target.value)} placeholder="e.g. JNVST 2024" />
             </CardBody>
           </Card>
 

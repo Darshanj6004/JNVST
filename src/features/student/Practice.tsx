@@ -19,29 +19,70 @@ import { Badge, Button, Card, CardBody, EmptyState, ProgressBar } from "@/ui";
 import { PageHeader } from "@/components/PageHeader";
 import { QuestionCard } from "@/components/QuestionCard";
 import { ProgressRing } from "@/charts";
-import { difficulties, subjects as defaultSubjects } from "@/data/subjects";
+import { difficulties } from "@/data/subjects";
+import { useSubjects } from "@/lib/useSubjects";
+import { useAuth } from "@/lib/auth";
+import { codeToLocal, db, localToCode, rpc } from "@/lib/api";
 import { pct } from "@/lib/format";
 import { cn } from "@/lib/cn";
-import { supabase } from "@/lib/supabaseClient";
 
 const icons: Record<string, typeof Brain> = { mat: Brain, ari: Calculator, lan: Languages };
 type Phase = "subject" | "topic" | "difficulty" | "questions" | "results";
 
-/**
- * ARCHITECTURAL PERSISTENCE NOTE (Phase 3 Investigation):
- * The database schema contains `practice_sets` which are teacher-authored test templates (RLS allows only teachers to insert/update).
- * Student attempts are stored in `exam_attempts` which enforces `mock_test_id NOT NULL` and `UNIQUE(student_id, mock_test_id)`.
- * There is currently no `practice_attempts` or `practice_answers` table in the database schema.
- * Therefore, practice session scores and answers are safely managed in-memory during the session,
- * avoiding corrupting formal mock test analytics or violating foreign key / RLS constraints.
- */
+
+type PracticeSet = {
+  id: string;
+  title: string;
+  description: string | null;
+  difficulty: string | null;
+  question_ids: string[];
+  subjects: { code: string; name: string } | null;
+};
+
+type PracticeRow = {
+  id: string;
+  question_text: string;
+  option_a: string;
+  option_b: string;
+  option_c: string;
+  option_d: string;
+  correct_option: string;
+  explanation: string | null;
+  image_url: string | null;
+  marks: number;
+  difficulty: string;
+  subject_code: string;
+  topic_name: string;
+};
+
+const PRACTICE_SIZE = 20;
+
+function toQuestion(q: PracticeRow): Question {
+  return {
+    id: q.id,
+    subjectId: codeToLocal[q.subject_code] ?? q.subject_code,
+    topicId: q.topic_name ?? "General",
+    difficulty: (q.difficulty ?? "medium") as "easy" | "medium" | "hard",
+    text: q.question_text ?? "",
+    options: [q.option_a, q.option_b, q.option_c, q.option_d],
+    answer: Math.max(0, ["A", "B", "C", "D"].indexOf(q.correct_option)),
+    marks: Number(q.marks) || 1.25,
+    explanation: q.explanation || "No explanation provided for this question.",
+    imageUrl: q.image_url || undefined,
+    usedCount: 0,
+    updatedAt: new Date().toISOString(),
+  };
+}
 
 export default function Practice() {
+  const { user } = useAuth();
+  const { subjects: availableSubjects } = useSubjects({ practiceCounts: true });
   const [phase, setPhase] = useState<Phase>("subject");
-  const [availableSubjects, setAvailableSubjects] = useState<Subject[]>(defaultSubjects);
   const [subject, setSubject] = useState<Subject | null>(null);
   const [topic, setTopic] = useState<Topic | "all" | null>(null);
   const [difficulty, setDifficulty] = useState<string | null>(null);
+  const [activeSet, setActiveSet] = useState<PracticeSet | null>(null);
+  const [sets, setSets] = useState<PracticeSet[]>([]);
 
   const [questions, setQuestions] = useState<Question[]>([]);
   const [loadingQuestions, setLoadingQuestions] = useState(false);
@@ -49,185 +90,80 @@ export default function Practice() {
   const [idx, setIdx] = useState(0);
   const [answers, setAnswers] = useState<Record<number, number>>({});
 
-  // Fetch subjects and topics from Supabase to ensure alignment with central database
+  // Teacher-assigned practice sets
   useEffect(() => {
-    (async () => {
-      try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const sb = supabase as any;
-        const { data: dbSubjects, error } = await sb
-          .from("subjects")
-          .select("id, code, name, duration_minutes, total_questions, total_marks, topics(id, name, description)");
-
-        if (!error && dbSubjects && dbSubjects.length > 0) {
-          const mapped: Subject[] = dbSubjects.map((s: {
-            id: string;
-            code: string;
-            name: string;
-            duration_minutes: number;
-            total_questions: number;
-            total_marks: number;
-            topics?: { id: string; name: string; description: string | null }[];
-          }) => {
-            const def = defaultSubjects.find(
-              (d) =>
-                d.id === s.code ||
-                (s.code === "mental_ability" && d.id === "mat") ||
-                (s.code === "arithmetic" && d.id === "ari") ||
-                (s.code === "language" && d.id === "lan")
-            );
-
-            return {
-              id: s.code === "mental_ability" ? "mat" : s.code === "arithmetic" ? "ari" : s.code === "language" ? "lan" : s.id,
-              name: s.name,
-              short: def?.short ?? s.name,
-              icon: def?.icon ?? "brain",
-              accent: def?.accent ?? "#2563eb",
-              questions: s.total_questions ?? 40,
-              marks: s.total_marks ?? 50,
-              duration: s.duration_minutes ?? 60,
-              topics: (s.topics && s.topics.length > 0)
-                ? s.topics.map((t) => ({
-                    id: t.id,
-                    name: t.name,
-                    description: t.description ?? "Topic practice questions",
-                    questionCount: 0,
-                  }))
-                : def?.topics ?? [],
-            };
-          });
-
-          if (mapped.length > 0) {
-            setAvailableSubjects(mapped);
-          }
-        }
-      } catch {
-        // If offline or unseeded, fall back gracefully to default subjects
-      }
-    })();
+    db.from("practice_sets")
+      .select("id, title, description, difficulty, question_ids, subjects(code, name)")
+      .eq("is_active", true)
+      .order("created_at", { ascending: false })
+      .then(({ data }: { data: PracticeSet[] | null }) => setSets(data ?? []));
   }, []);
 
-  // Fetch real questions from Supabase question bank based on student selection
-  const begin = useCallback(async (diff: string) => {
-    if (!subject) return;
-
-    setDifficulty(diff);
-    setLoadingQuestions(true);
-    setFetchError(null);
-    setPhase("questions");
-
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const sb = supabase as any;
-
-      const subjectCode =
-        subject.id === "mat"
-          ? "mental_ability"
-          : subject.id === "ari"
-            ? "arithmetic"
-            : subject.id === "lan"
-              ? "language"
-              : subject.id;
-
-      // 1. Query questions_view (joins questions with subject and topic names)
-      let query = sb.from("questions_view").select("*").eq("subject_code", subjectCode);
-
-      if (topic !== "all" && typeof topic === "object" && topic !== null) {
-        query = query.eq("topic_name", topic.name);
-      }
-
-      if (diff !== "combined") {
-        query = query.eq("difficulty", diff);
-      }
-
-      let { data, error } = await query;
-
-      // Fallback: if questions_view is unavailable, query public.questions table with schema relational joins
-      if (error) {
-        let fallbackQuery = sb
-          .from("questions")
-          .select(`
-            id,
-            difficulty,
-            question_text,
-            option_a,
-            option_b,
-            option_c,
-            option_d,
-            correct_option,
-            marks,
-            explanation,
-            image_url,
-            used_count,
-            created_at,
-            updated_at,
-            subjects!inner(code, name),
-            topics!inner(name)
-          `)
-          .eq("subjects.code", subjectCode);
-
-        if (topic !== "all" && typeof topic === "object" && topic !== null) {
-          fallbackQuery = fallbackQuery.eq("topics.name", topic.name);
-        }
-
-        if (diff !== "combined") {
-          fallbackQuery = fallbackQuery.eq("difficulty", diff);
-        }
-
-        const fbRes = await fallbackQuery;
-        if (!fbRes.error && fbRes.data) {
-          data = fbRes.data;
-          error = null;
-        } else if (fbRes.error) {
-          // Keep the error honest; do not fabricate data
-          error = fbRes.error;
-        }
-      }
-
-      if (error) {
-        setFetchError(error.message || "Failed to load questions from database.");
+  const begin = useCallback(
+    async (diff: string) => {
+      if (!subject) return;
+      setActiveSet(null);
+      setDifficulty(diff);
+      setLoadingQuestions(true);
+      setFetchError(null);
+      setPhase("questions");
+      try {
+        const rows = await rpc<PracticeRow[]>("get_practice_questions", {
+          p_subject_code: localToCode[subject.id] ?? subject.id,
+          p_topic_name: topic && topic !== "all" ? topic.name : null,
+          p_difficulty: diff === "combined" ? null : diff,
+          p_limit: PRACTICE_SIZE,
+        });
+        setQuestions((rows ?? []).map(toQuestion));
+        setIdx(0);
+        setAnswers({});
+      } catch (err) {
+        setFetchError((err as Error).message);
+      } finally {
         setLoadingQuestions(false);
-        return;
       }
+    },
+    [subject, topic],
+  );
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const rawList = (data ?? []) as any[];
-
-      if (rawList.length === 0) {
-        setQuestions([]);
+  const beginSet = useCallback(
+    async (set: PracticeSet) => {
+      const local = codeToLocal[set.subjects?.code ?? ""] ?? "mat";
+      setSubject(availableSubjects.find((s) => s.id === local) ?? availableSubjects[0]);
+      setTopic("all");
+      setDifficulty(set.difficulty ?? "combined");
+      setActiveSet(set);
+      setLoadingQuestions(true);
+      setFetchError(null);
+      setPhase("questions");
+      try {
+        const rows = await rpc<PracticeRow[]>("get_practice_set_questions", { p_set_id: set.id });
+        setQuestions((rows ?? []).map(toQuestion));
+        setIdx(0);
+        setAnswers({});
+      } catch (err) {
+        setFetchError((err as Error).message);
+      } finally {
         setLoadingQuestions(false);
-        return;
       }
+    },
+    [availableSubjects],
+  );
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const formatted: Question[] = rawList.map((q: any) => ({
-        id: q.id,
-        subjectId: subject.id,
-        topicId: q.topic_name ?? q.topics?.name ?? q.topic_id ?? "General",
-        difficulty: (q.difficulty ?? "medium") as "easy" | "medium" | "hard",
-        text: q.question_text ?? "",
-        options: [q.option_a ?? "A", q.option_b ?? "B", q.option_c ?? "C", q.option_d ?? "D"],
-        answer: q.correct_option === "A" ? 0 : q.correct_option === "B" ? 1 : q.correct_option === "C" ? 2 : 3,
-        marks: Number(q.marks) || 1.25,
-        explanation: q.explanation || "No explanation provided for this question.",
-        imageUrl: q.image_url || undefined,
-        usedCount: Number(q.used_count) || 0,
-        updatedAt: q.updated_at || new Date().toISOString(),
-      }));
-
-      // Shuffle questions to provide variety in practice
-      const shuffled = [...formatted].sort(() => Math.random() - 0.5);
-
-      setQuestions(shuffled);
-      setIdx(0);
-      setAnswers({});
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Failed to load practice questions";
-      setFetchError(msg);
-    } finally {
-      setLoadingQuestions(false);
-    }
-  }, [subject, topic]);
+  const finish = async () => {
+    setPhase("results");
+    if (!user?.id || questions.length === 0) return;
+    const correct = questions.reduce((acc, q, i) => acc + (answers[i] === q.answer ? 1 : 0), 0);
+    await db.from("practice_attempts").insert({
+      student_id: user.id,
+      practice_set_id: activeSet?.id ?? null,
+      subject_code: subject ? (localToCode[subject.id] ?? subject.id) : "mental_ability",
+      topic_name: topic && topic !== "all" ? topic.name : null,
+      difficulty,
+      total: questions.length,
+      correct,
+    });
+  };
 
   const reset = () => {
     setPhase("subject");
@@ -237,6 +173,7 @@ export default function Practice() {
     setQuestions([]);
     setAnswers({});
     setFetchError(null);
+    setActiveSet(null);
   };
 
   const score = useMemo(
@@ -266,7 +203,7 @@ export default function Practice() {
         onRetry={() => begin(difficulty!)}
         onBackToTopics={() => setPhase("topic")}
         onBackToDifficulty={() => setPhase("difficulty")}
-        onFinish={() => setPhase("results")}
+        onFinish={() => void finish()}
         onRestart={reset}
       />
     );
@@ -304,6 +241,35 @@ export default function Practice() {
           <Sparkles className="size-3.5" /> Central Question Bank · Instant Explanations
         </div>
       </div>
+
+      {/* Teacher-assigned practice sets */}
+      {phase === "subject" && sets.length > 0 && (
+        <div className="space-y-3">
+          <p className="text-sm font-semibold text-ink">Assigned by your teacher</p>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {sets.map((ps) => (
+              <button key={ps.id} onClick={() => void beginSet(ps)} className="text-left cursor-pointer group">
+                <Card className="h-full rounded-2xl border border-line bg-white transition-all hover:border-brand-400 hover:shadow-xs">
+                  <CardBody className="p-4">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-sm font-bold text-ink group-hover:text-brand-600">{ps.title}</p>
+                      <Badge tone="brand" className="shrink-0">
+                        {ps.question_ids.length} Q
+                      </Badge>
+                    </div>
+                    <p className="mt-1 text-xs text-muted">
+                      {ps.subjects?.name ?? "Mixed"}
+                      {ps.difficulty && ps.difficulty !== "combined" ? ` · ${ps.difficulty}` : ""}
+                    </p>
+                    {ps.description && <p className="mt-2 line-clamp-2 text-xs text-slate-600">{ps.description}</p>}
+                  </CardBody>
+                </Card>
+              </button>
+            ))}
+          </div>
+          <p className="pt-2 text-sm font-semibold text-ink">Or practise on your own</p>
+        </div>
+      )}
 
       {/* Step 1: Subject Selection */}
       {phase === "subject" && (
@@ -391,7 +357,9 @@ export default function Practice() {
                       <p className="truncate text-sm font-bold text-ink group-hover:text-brand-600 transition-colors">
                         {t.name}
                       </p>
-                      <p className="truncate text-xs text-muted mt-0.5">{t.description}</p>
+                      <p className="truncate text-xs text-muted mt-0.5">
+                        {t.questionCount > 0 ? `${t.questionCount} practice questions` : "No questions yet"}
+                      </p>
                     </div>
                     <Badge tone="brand" className="font-semibold shrink-0">Select</Badge>
                   </CardBody>
@@ -600,7 +568,7 @@ function RunView({
 
             <div className="mt-4 flex items-center gap-1.5 text-[11px] text-muted bg-slate-50 px-3 py-1.5 rounded-lg border border-line">
               <Info className="size-3.5 text-slate-400" />
-              <span>Practice session saved in session memory · Central bank questions verified</span>
+              <span>Your score has been saved to your practice history</span>
             </div>
 
             <div className="mt-6 flex flex-wrap justify-center gap-3">

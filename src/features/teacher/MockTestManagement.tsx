@@ -17,6 +17,7 @@ import { Badge, Button, Card, CardBody, CardHeader, useToast } from "@/ui";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { PageHeader } from "@/components/PageHeader";
 import { supabase } from "@/lib/supabaseClient";
+import { finalizeExpiredAttempts } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
 import { cn } from "@/lib/cn";
 
@@ -52,6 +53,7 @@ export default function MockTestManagement() {
 
   const load = useCallback(async () => {
     setLoading(true);
+    await finalizeExpiredAttempts();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const sb = supabase as any;
 
@@ -128,7 +130,13 @@ export default function MockTestManagement() {
       .eq("id", deleteTarget.id);
 
     if (error) {
-      toast({ type: "error", title: "Delete failed", message: error.message });
+      toast({
+        type: "error",
+        title: "Delete failed",
+        message: /foreign key/i.test(error.message)
+          ? "Students have already taken this test, so it can't be deleted (their results would be lost). Mark it Completed instead."
+          : error.message,
+      });
     } else {
       setTests((prev) => prev.filter((t) => t.id !== deleteTarget.id));
       toast({ type: "success", title: "Test deleted" });

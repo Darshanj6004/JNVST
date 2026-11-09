@@ -74,6 +74,7 @@ export default function Notifications() {
     await (supabase as any)
       .from("notification_reads")
       .upsert({ notification_id: id, user_id: user.id }, { onConflict: "notification_id,user_id" });
+    window.dispatchEvent(new Event("notifications:changed"));
   };
 
   const markAllRead = async () => {
@@ -82,10 +83,15 @@ export default function Notifications() {
     setItems((prev) => prev.map((i) => ({ ...i, read: true })));
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const sb = supabase as any;
-    for (const n of unread) {
-      await sb.from("notification_reads")
-        .upsert({ notification_id: n.id, user_id: user.id }, { onConflict: "notification_id,user_id" });
+    if (unread.length > 0) {
+      await sb
+        .from("notification_reads")
+        .upsert(
+          unread.map((n) => ({ notification_id: n.id, user_id: user.id })),
+          { onConflict: "notification_id,user_id" },
+        );
     }
+    window.dispatchEvent(new Event("notifications:changed"));
   };
 
   const unread = items.filter((i) => !i.read).length;

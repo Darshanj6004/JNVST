@@ -14,10 +14,13 @@ import {
   THead,
   TR,
   TD,
+  useToast,
 } from "@/ui";
 import { PageHeader } from "@/components/PageHeader";
 import { AccuracyBars, ScoreTrend } from "@/charts";
-import { supabase } from "@/lib/supabaseClient";
+import * as XLSX from "xlsx";
+import { finalizeExpiredAttempts, rpc, type TestSummary } from "@/lib/api";
+import { useSettings } from "@/lib/useSettings";
 
 const bandTone = { strong: "success", average: "warning", weak: "danger" } as const;
 
@@ -37,13 +40,6 @@ type TopicStat = {
   band: "strong" | "average" | "weak";
 };
 
-type TestStat = {
-  test_title: string;
-  avg_score: number;
-  total_marks: number;
-  attempts: number;
-  submitted_at: string;
-};
 
 const SUBJECT_LABELS: Record<string, string> = {
   mental_ability: "Mental Ability",
@@ -52,6 +48,8 @@ const SUBJECT_LABELS: Record<string, string> = {
 };
 
 export default function Reports() {
+  const { toast } = useToast();
+  const settings = useSettings();
   const [subjectFilter, setSubjectFilter] = useState("all");
   const [loading, setLoading] = useState(true);
 
@@ -63,115 +61,110 @@ export default function Reports() {
   const [topicStats, setTopicStats] = useState<TopicStat[]>([]);
   const [testTrend, setTestTrend] = useState<{ label: string; score: number; avg: number }[]>([]);
 
+  const [testRows, setTestRows] = useState<TestSummary[]>([]);
+
   const load = useCallback(async () => {
     setLoading(true);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const sb = supabase as any;
+    await finalizeExpiredAttempts();
+    try {
+      const [tests, topicsRaw, students] = await Promise.all([
+        rpc<TestSummary[]>("class_test_summary"),
+        rpc<{ subject_code: string; topic_name: string; total: number; correct: number }[]>("class_topic_stats", {
+          p_test_id: null,
+        }),
+        rpc<{ tests_taken: number }[]>("class_student_summary"),
+      ]);
 
-    // 1. Submitted attempts with mock test info
-    const { data: attempts } = await sb
-      .from("exam_attempts")
-      .select("score, mock_tests(title, total_marks, scheduled_at)")
-      .eq("status", "submitted");
+      const taken = (tests ?? []).filter((t) => t.attempts > 0);
+      setTestRows(taken);
+      setTotalTests(taken.length);
 
-    const att = (attempts ?? []) as {
-      score: number;
-      mock_tests: { title: string; total_marks: number; scheduled_at: string };
-    }[];
+      const totalAttempts = taken.reduce((s, t) => s + t.attempts, 0);
+      setClassAvg(
+        totalAttempts > 0
+          ? Math.round(taken.reduce((s, t) => s + Number(t.avg_pct ?? 0) * t.attempts, 0) / totalAttempts)
+          : null,
+      );
+      setTopScore(taken.length > 0 ? Math.round(Math.max(...taken.map((t) => Number(t.max_pct ?? 0)))) : null);
+      setTestTrend(
+        taken.slice(-8).map((t) => ({
+          label: t.title.length > 12 ? t.title.slice(0, 12) + "…" : t.title,
+          score: Math.round(Number(t.max_pct ?? 0)),
+          avg: Math.round(Number(t.avg_pct ?? 0)),
+        })),
+      );
 
-    setTotalTests(new Set(att.map((a) => a.mock_tests?.title)).size);
+      // Attendance = attempts / (tests held × active students)
+      const studentCount = (students ?? []).length;
+      setAttendance(
+        studentCount > 0 && taken.length > 0
+          ? Math.min(100, Math.round((totalAttempts / (taken.length * studentCount)) * 100))
+          : null,
+      );
 
-    if (att.length > 0) {
-      const pcts = att.map((a) => (a.score / (a.mock_tests?.total_marks || 100)) * 100);
-      setClassAvg(Math.round(pcts.reduce((s, v) => s + v, 0) / pcts.length));
-      setTopScore(Math.round(Math.max(...pcts)));
-
-      // Build test trend: group by test title, compute avg
-      const byTest: Record<string, { pcts: number[]; date: string }> = {};
-      for (const a of att) {
-        const title = a.mock_tests?.title ?? "Unknown";
-        const pct = (a.score / (a.mock_tests?.total_marks || 100)) * 100;
-        if (!byTest[title]) byTest[title] = { pcts: [], date: a.mock_tests?.scheduled_at ?? "" };
-        byTest[title].pcts.push(pct);
+      const subMap: Record<string, { correct: number; total: number }> = {};
+      const topics: TopicStat[] = [];
+      for (const r of topicsRaw ?? []) {
+        subMap[r.subject_code] ??= { correct: 0, total: 0 };
+        subMap[r.subject_code].correct += r.correct;
+        subMap[r.subject_code].total += r.total;
+        const acc = r.total > 0 ? Math.round((r.correct / r.total) * 100) : 0;
+        topics.push({
+          topic_name: r.topic_name,
+          subject_code: r.subject_code,
+          correct: r.correct,
+          total: r.total,
+          accuracy: acc,
+          band: acc >= settings.strong_threshold ? "strong" : acc >= settings.weak_threshold ? "average" : "weak",
+        });
       }
-      const trend = Object.entries(byTest)
-        .map(([title, { pcts, date }]) => ({
-          label: title.length > 12 ? title.slice(0, 12) + "…" : title,
-          score: Math.round(Math.max(...pcts)),
-          avg: Math.round(pcts.reduce((s, v) => s + v, 0) / pcts.length),
-          date,
-        }))
-        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-        .slice(-8);
-      setTestTrend(trend);
+      setSubjectStats(
+        Object.entries(subMap).map(([code, v]) => ({
+          subject: SUBJECT_LABELS[code] ?? code,
+          correct: v.correct,
+          total: v.total,
+          accuracy: v.total > 0 ? Math.round((v.correct / v.total) * 100) : 0,
+        })),
+      );
+      setTopicStats(topics.sort((x, y) => x.accuracy - y.accuracy));
+    } catch (e) {
+      toast({ type: "error", title: "Could not load reports", message: (e as Error).message });
     }
-
-    // 2. Exam answers with subject info for accuracy
-    const { data: answers } = await sb
-      .from("exam_answers")
-      .select("is_correct, questions(subject_code, topic_name)");
-
-    const ans = (answers ?? []) as {
-      is_correct: boolean | null;
-      questions: { subject_code: string; topic_name: string };
-    }[];
-
-    // Subject accuracy
-    const subMap: Record<string, { correct: number; total: number }> = {};
-    const topicMap: Record<string, { correct: number; total: number; subject: string }> = {};
-    for (const a of ans) {
-      const code = a.questions?.subject_code ?? "other";
-      const topic = a.questions?.topic_name ?? "Unknown";
-      if (!subMap[code]) subMap[code] = { correct: 0, total: 0 };
-      subMap[code].total++;
-      if (a.is_correct) subMap[code].correct++;
-
-      const key = `${code}:${topic}`;
-      if (!topicMap[key]) topicMap[key] = { correct: 0, total: 0, subject: code };
-      topicMap[key].total++;
-      if (a.is_correct) topicMap[key].correct++;
-    }
-
-    setSubjectStats(
-      Object.entries(subMap).map(([code, v]) => ({
-        subject: SUBJECT_LABELS[code] ?? code,
-        correct: v.correct,
-        total: v.total,
-        accuracy: v.total > 0 ? Math.round((v.correct / v.total) * 100) : 0,
-      }))
-    );
-
-    const topics: TopicStat[] = Object.entries(topicMap).map(([key, v]) => {
-      const acc = v.total > 0 ? Math.round((v.correct / v.total) * 100) : 0;
-      return {
-        topic_name: key.split(":")[1],
-        subject_code: v.subject,
-        correct: v.correct,
-        total: v.total,
-        accuracy: acc,
-        band: (acc >= 75 ? "strong" : acc >= 50 ? "average" : "weak") as "strong" | "average" | "weak",
-      };
-    }).sort((a, b) => a.accuracy - b.accuracy);
-    setTopicStats(topics);
-
-    // Total students attempted (for attendance proxy)
-    const { count: studentAttempts } = await sb
-      .from("exam_attempts")
-      .select("student_id", { count: "exact", head: true })
-      .eq("status", "submitted");
-
-    const { count: totalStudents } = await sb
-      .from("profiles")
-      .select("id", { count: "exact", head: true })
-      .eq("role", "student")
-      .eq("status", "active");
-
-    if (totalStudents && totalStudents > 0) {
-      setAttendance(Math.min(100, Math.round(((studentAttempts ?? 0) / totalStudents) * 100)));
-    }
-
     setLoading(false);
-  }, []);
+  }, [settings, toast]);
+
+  const exportReport = () => {
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(
+      wb,
+      XLSX.utils.json_to_sheet(
+        testRows.map((t) => ({
+          Test: t.title,
+          Date: t.scheduled_at ? new Date(t.scheduled_at).toLocaleDateString("en-IN") : "",
+          "Students attempted": t.attempts,
+          "Average %": Number(t.avg_pct ?? 0),
+          "Highest %": Number(t.max_pct ?? 0),
+          "Lowest %": Number(t.min_pct ?? 0),
+        })),
+      ),
+      "Tests",
+    );
+    XLSX.utils.book_append_sheet(
+      wb,
+      XLSX.utils.json_to_sheet(
+        topicStats.map((t) => ({
+          Subject: SUBJECT_LABELS[t.subject_code] ?? t.subject_code,
+          Topic: t.topic_name,
+          Correct: t.correct,
+          Questions: t.total,
+          "Accuracy %": t.accuracy,
+          Band: t.band,
+        })),
+      ),
+      "Topics",
+    );
+    XLSX.writeFile(wb, `class-report-${new Date().toISOString().slice(0, 10)}.xlsx`);
+  };
 
   useEffect(() => { load(); }, [load]);
 
@@ -180,7 +173,7 @@ export default function Reports() {
   );
 
   const chartData = subjectStats.map((s) => ({ label: s.subject.split(" ")[0], value: s.accuracy }));
-  const trendData = testTrend.map((t) => ({ label: t.label, score: t.avg, average: t.avg }));
+  const trendData = testTrend.map((t) => ({ label: t.label, score: t.score, average: t.avg }));
 
   return (
     <div className="space-y-6">
@@ -188,7 +181,12 @@ export default function Reports() {
         title="Reports"
         description="Class-level and topic-wise performance analysis."
         actions={
-          <Button variant="secondary" leftIcon={<Download className="size-4" />}>
+          <Button
+            variant="secondary"
+            leftIcon={<Download className="size-4" />}
+            onClick={exportReport}
+            disabled={loading || testRows.length === 0}
+          >
             Export report
           </Button>
         }

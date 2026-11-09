@@ -19,6 +19,7 @@ import { Badge, Button, Card, CardBody, CardHeader, EmptyState, ProgressBar } fr
 import { ProgressRing, ScoreTrend } from "@/charts";
 import { formatDateTime, relativeTime } from "@/lib/format";
 import { supabase } from "@/lib/supabaseClient";
+import { finalizeExpiredAttempts } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import type { Student } from "@/types";
 
@@ -93,6 +94,8 @@ export default function StudentDashboard() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const sb = supabase as any;
 
+      await finalizeExpiredAttempts();
+
       // 1. Fetch submitted attempts for this student with linked mock test details
       const { data: attemptsData, error: attemptsErr } = await sb
         .from("exam_attempts")
@@ -133,67 +136,31 @@ export default function StudentDashboard() {
       if (testsErr) throw testsErr;
       setUpcomingTests((testsData as UpcomingTest[]) ?? []);
 
-      // 3. If student has submitted attempts, load answers to compute real topic strengths & weaknesses
+      // 3. Topic strengths & weaknesses (server-aggregated, no answer keys exposed)
       if (attemptsList.length > 0) {
-        const attemptIds = attemptsList.map((a) => a.id);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        let answersData: any[] | null = null;
-
-        // Try primary query with questions view/columns
-        const { data: aData, error: aErr } = await sb
-          .from("exam_answers")
-          .select("is_correct, questions(subject_code, topic_name)")
-          .in("attempt_id", attemptIds);
-
-        if (!aErr && aData) {
-          answersData = aData;
-        } else {
-          // Schema-resilient relational fallback joining via subjects and topics tables
-          const { data: aDataRel, error: aErrRel } = await sb
-            .from("exam_answers")
-            .select("is_correct, questions(subjects(code), topics(name))")
-            .in("attempt_id", attemptIds);
-
-          if (!aErrRel && aDataRel) {
-            answersData = aDataRel;
-          }
+        const { data: stats } = await sb.rpc("my_topic_stats");
+        const topicMap: Record<string, { correct: number; total: number; subject: string; topic: string }> = {};
+        for (const r of (stats ?? []) as { subject_code: string; topic_name: string; total: number; correct: number }[]) {
+          const key = `${r.subject_code}:${r.topic_name}`;
+          topicMap[key] ??= { correct: 0, total: 0, subject: r.subject_code, topic: r.topic_name };
+          topicMap[key].total += r.total;
+          topicMap[key].correct += r.correct;
         }
-
-        if (answersData) {
-          const topicMap: Record<string, { correct: number; total: number; subject: string; topic: string }> = {};
-
-          for (const a of answersData) {
-            const code = a.questions?.subject_code ?? a.questions?.subjects?.code ?? "other";
-            const topic = a.questions?.topic_name ?? a.questions?.topics?.name ?? "General";
-            const key = `${code}:${topic}`;
-
-            if (!topicMap[key]) {
-              topicMap[key] = { correct: 0, total: 0, subject: code, topic };
-            }
-            topicMap[key].total++;
-            if (a.is_correct) topicMap[key].correct++;
-          }
-
-          const parsedTopics: TopicPerformance[] = Object.values(topicMap).map((item) => {
-            const accuracy = item.total > 0 ? Math.round((item.correct / item.total) * 100) : 0;
-            const isBuilding = item.total < 3; // Phase 3 rule: < 3 questions marked as "Building data"
-            const band: "strong" | "average" | "weak" =
-              accuracy >= 75 ? "strong" : accuracy >= 50 ? "average" : "weak";
-
-            return {
-              key: `${item.subject}:${item.topic}`,
-              topic: item.topic,
-              subject: item.subject,
-              total: item.total,
-              correct: item.correct,
-              accuracy,
-              band,
-              isBuilding,
-            };
-          });
-
-          setTopicStats(parsedTopics);
-        }
+        const parsedTopics: TopicPerformance[] = Object.values(topicMap).map((item) => {
+          const accuracy = item.total > 0 ? Math.round((item.correct / item.total) * 100) : 0;
+          const band: "strong" | "average" | "weak" = accuracy >= 75 ? "strong" : accuracy >= 50 ? "average" : "weak";
+          return {
+            key: `${item.subject}:${item.topic}`,
+            topic: item.topic,
+            subject: item.subject,
+            total: item.total,
+            correct: item.correct,
+            accuracy,
+            band,
+            isBuilding: item.total < 3,
+          };
+        });
+        setTopicStats(parsedTopics);
       } else {
         setTopicStats([]);
       }

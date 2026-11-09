@@ -1,4 +1,6 @@
-import { NavLink } from "react-router";
+import { useEffect, useState } from "react";
+import { NavLink, useLocation } from "react-router";
+import { db } from "@/lib/api";
 import { GraduationCap, X } from "lucide-react";
 import type { NavSection } from "@/lib/nav";
 import { cn } from "@/lib/cn";
@@ -16,6 +18,7 @@ export function Sidebar({
   mobileOpen: boolean;
   onClose: () => void;
 }) {
+  const unread = useUnreadCount(nav.some((sec) => sec.items.some((i) => i.to === "/student/notifications")));
   const content = (
     <div className="flex h-full flex-col">
       <div className="flex h-16 items-center justify-between gap-2 px-5 border-b border-line">
@@ -70,9 +73,9 @@ export function Sidebar({
                         )}
                       />
                       <span className="flex-1 truncate">{item.label}</span>
-                      {item.badge ? (
+                      {(item.to === "/student/notifications" ? unread : item.badge) ? (
                         <span className="rounded-full bg-brand-500 px-2 py-0.5 text-[11px] font-bold text-white tabular shadow-xs">
-                          {item.badge}
+                          {item.to === "/student/notifications" ? unread : item.badge}
                         </span>
                       ) : null}
                     </>
@@ -111,4 +114,19 @@ export function Sidebar({
       )}
     </>
   );
+}
+
+/** Unread notification count; refreshes on navigation and when notifications are read. */
+function useUnreadCount(enabled: boolean) {
+  const [count, setCount] = useState(0);
+  const { pathname } = useLocation();
+  useEffect(() => {
+    if (!enabled) return;
+    const load = () =>
+      db.rpc("unread_notification_count").then(({ data }: { data: number | null }) => setCount(data ?? 0));
+    void load();
+    window.addEventListener("notifications:changed", load);
+    return () => window.removeEventListener("notifications:changed", load);
+  }, [enabled, pathname]);
+  return count;
 }

@@ -3,6 +3,7 @@ import { Crown, Download, Medal, RefreshCw, Trophy } from "lucide-react";
 import { Avatar, Badge, Button, Card, CardBody, Select, Table, TH, THead, TR, TD } from "@/ui";
 import { PageHeader } from "@/components/PageHeader";
 import { supabase } from "@/lib/supabaseClient";
+import { finalizeExpiredAttempts } from "@/lib/api";
 import { cn } from "@/lib/cn";
 
 type RankedStudent = {
@@ -47,6 +48,7 @@ export default function MeritList() {
   const loadRankings = useCallback(async () => {
     if (!selectedTestId) return;
     setLoading(true);
+    await finalizeExpiredAttempts();
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const sb = supabase as any;

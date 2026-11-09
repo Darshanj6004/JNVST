@@ -12,6 +12,7 @@ import {
   TriangleAlert,
   Trophy,
   Settings,
+  Layers,
   type LucideIcon,
 } from "lucide-react";
 
@@ -40,7 +41,7 @@ export const studentNav: NavSection[] = [
   {
     heading: "Account",
     items: [
-      { label: "Notifications", to: "/student/notifications", icon: Bell, badge: 3 },
+      { label: "Notifications", to: "/student/notifications", icon: Bell },
       { label: "Profile", to: "/student/profile", icon: User },
     ],
   },
@@ -52,7 +53,8 @@ export const teacherNav: NavSection[] = [
       { label: "Dashboard", to: "/teacher/dashboard", icon: LayoutDashboard },
       { label: "Students", to: "/teacher/students", icon: Users },
       { label: "Question Bank", to: "/teacher/questions", icon: Database },
-      { label: "Mock Tests", to: "/teacher/mock-tests", icon: ClipboardList },
+      { label: "Practice Sets", to: "/teacher/practice-sets", icon: Layers },
+      { label: "Mock Tests", to: "/teacher/mock-tests", icon: ClipboardList, end: true },
       { label: "Schedule Mock", to: "/teacher/mock-tests/new", icon: CalendarPlus },
     ],
   },

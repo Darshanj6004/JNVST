@@ -31,10 +31,11 @@ import {
 } from "@/ui";
 import { PageHeader } from "@/components/PageHeader";
 import { cn } from "@/lib/cn";
-import { subjects } from "@/data/subjects";
-import { previousYearPapers } from "@/data/previousYearPapers";
 import type { PreviousYearPaper } from "@/data/previousYearPapers";
 import { supabase } from "@/lib/supabaseClient";
+import { rpc } from "@/lib/api";
+import { useSubjects } from "@/lib/useSubjects";
+import { useSettings } from "@/lib/useSettings";
 
 // ── constants ─────────────────────────────────────────────────────────────────
 
@@ -226,14 +227,8 @@ function PaperCard({
   selected: boolean;
   onSelect: () => void;
 }) {
-  // Coverage is approximate — the paper card doesn't have access to DB questions,
-  // so we show 0% until questions are loaded. This is fine for display purposes.
-  const bankIds = new Set<string>();
-  const totalMapped = paper.sections.reduce(
-    (sum, s) => sum + s.questionIds.filter((id) => bankIds.has(id)).length,
-    0,
-  );
-  const coverage = Math.round((totalMapped / paper.totalQuestions) * 100);
+  // Papers are built from the question bank, so every question is available.
+  const coverage = 100;
 
   return (
     <button
@@ -288,7 +283,7 @@ function PaperCard({
             coverage >= 80 ? "text-success" : coverage >= 50 ? "text-warning" : "text-muted",
           )}
         >
-          {coverage}% in bank
+          {coverage === 100 ? "Ready" : `${coverage}% in bank`}
         </span>
       </div>
 
@@ -316,6 +311,7 @@ type DBQuestion = {
   marks: number;
   image_url: string | null;
   used_count: number;
+  source: string | null;
   subject_code: string;
   topic_name: string;
   subject_id: string;
@@ -331,6 +327,8 @@ const codeToLocalId: Record<string, string> = {
 export default function CreateScheduleMock() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { subjects } = useSubjects();
+  const settings = useSettings();
 
   const [step, setStep] = useState<Step>("details");
   const [pattern, setPattern] = useState<Pattern>("JNVST");
@@ -338,6 +336,10 @@ export default function CreateScheduleMock() {
   const [date, setDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [time, setTime] = useState("10:00");
   const [duration, setDuration] = useState(120);
+  const [durationTouched, setDurationTouched] = useState(false);
+  useEffect(() => {
+    if (!durationTouched) setDuration(settings.default_duration_minutes);
+  }, [settings.default_duration_minutes, durationTouched]);
   const [selectedPaper, setSelectedPaper] = useState<PreviousYearPaper | null>(null);
   const [yearFilter, setYearFilter] = useState("all");
   const [scheduling, setScheduling] = useState(false);
@@ -370,7 +372,7 @@ export default function CreateScheduleMock() {
   const visibleTopics = useMemo(() => {
     if (filterSubject === "all") return [];
     return subjects.find((s) => s.id === filterSubject)?.topics ?? [];
-  }, [filterSubject]);
+  }, [filterSubject, subjects]);
 
   const filtered = useMemo(() => {
     let pool = dbQuestions;
@@ -430,15 +432,47 @@ export default function CreateScheduleMock() {
     setSelectedIds(new Set(ids));
   }
 
+  // Previous year papers = questions in the bank grouped by their "Source" tag.
+  const previousYearPapers = useMemo<PreviousYearPaper[]>(() => {
+    const groups: Record<string, DBQuestion[]> = {};
+    for (const q of dbQuestions) if (q.source) (groups[q.source] ??= []).push(q);
+    const labels: Record<string, string> = { mat: "Mental Ability Test", ari: "Arithmetic Test", lan: "Language Test" };
+    return Object.entries(groups)
+      .map(([src, qs]) => {
+        const year = Number(src.match(/(19|20)\d{2}/)?.[0] ?? 0);
+        return {
+          id: src,
+          title: src,
+          year,
+          region: "From your question bank",
+          durationMin: 120,
+          totalQuestions: qs.length,
+          totalMarks: Math.round(qs.reduce((a, q) => a + Number(q.marks), 0) * 100) / 100,
+          tags: ["Question bank"],
+          sections: ["mat", "ari", "lan"].map((sid) => {
+            const inSec = qs.filter((q) => (codeToLocalId[q.subject_code] ?? q.subject_code) === sid);
+            return {
+              subjectId: sid,
+              label: labels[sid],
+              quota: inSec.length,
+              marks: inSec.reduce((a, q) => a + Number(q.marks), 0),
+              questionIds: inSec.map((q) => q.id),
+            };
+          }),
+        };
+      })
+      .sort((a, b) => b.year - a.year || a.title.localeCompare(b.title));
+  }, [dbQuestions]);
+
   // Years available for filter
-  const availableYears = [...new Set(previousYearPapers.map((p) => p.year))].sort((a, b) => b - a);
+  const availableYears = [...new Set(previousYearPapers.map((p) => p.year).filter(Boolean))].sort((a, b) => b - a);
 
   const filteredPapers = useMemo(
     () =>
       yearFilter === "all"
         ? previousYearPapers
         : previousYearPapers.filter((p) => String(p.year) === yearFilter),
-    [yearFilter],
+    [yearFilter, previousYearPapers],
   );
 
   async function handleSchedule() {
@@ -446,58 +480,29 @@ export default function CreateScheduleMock() {
     setScheduling(true);
 
     const scheduledAt = new Date(`${date}T${time}:00`).toISOString();
-    const totalMarks = [...selectedIds].reduce((sum, id) => {
-      const q = dbQuestions.find((x) => x.id === id);
-      return sum + (q?.marks ?? 1.25);
-    }, 0);
-
-    // 1. Create the mock test
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const sb = supabase as any;
-    const { data: mt, error: mtErr } = await sb
-      .from("mock_tests")
-      .insert({
-        title: title.trim() || "Mock Test",
-        pattern: pattern === "PreviousYear" ? "JNVST" : pattern,
-        duration_minutes: duration,
-        total_questions: selectedIds.size,
-        total_marks: totalMarks,
-        scheduled_at: scheduledAt,
-        status: "scheduled",
-      })
-      .select("id")
-      .single();
-
-    if (mtErr || !mt) {
-      toast({ type: "error", title: "Failed to create test", message: mtErr?.message ?? "Unknown error" });
-      setScheduling(false);
-      return;
+    let ok = false;
+    try {
+      await rpc<string>("create_mock_test", {
+        p_title: title.trim() || "Mock Test",
+        p_pattern: pattern === "Manual" ? "Manual" : "JNVST",
+        p_duration_minutes: duration,
+        p_scheduled_at: scheduledAt,
+        p_question_ids: [...selectedIds],
+        p_description: pattern === "PreviousYear" && selectedPaper ? `Based on ${selectedPaper.title}` : null,
+      });
+      ok = true;
+    } catch (e) {
+      toast({ type: "error", title: "Failed to create test", message: (e as Error).message });
     }
-
-    // 2. Insert the question list
-    const questionRows = [...selectedIds].map((qid, idx) => ({
-      mock_test_id: mt.id,
-      question_id: qid,
-      order_index: idx,
-    }));
-
-    const { error: qErr } = await sb
-      .from("mock_test_questions")
-      .insert(questionRows);
-
     setScheduling(false);
-
-    if (qErr) {
-      toast({ type: "error", title: "Questions not linked", message: qErr.message });
-      return;
-    }
+    if (!ok) return;
 
     toast({
       type: "success",
       title: "Mock test scheduled! 🎉",
       message: `"${title || "Mock Test"}" set for ${date} at ${time} · ${selectedIds.size} questions.`,
     });
-    navigate("/teacher/dashboard");
+    navigate("/teacher/mock-tests");
   }
 
   // ── step 1: details ──────────────────────────────────────────────────────────
@@ -590,7 +595,7 @@ export default function CreateScheduleMock() {
                   type="number"
                   value={pattern !== "Manual" ? 120 : duration}
                   disabled={pattern !== "Manual"}
-                  onChange={(e) => setDuration(Number(e.target.value))}
+                  onChange={(e) => { setDurationTouched(true); setDuration(Number(e.target.value)); }}
                 />
               </Field>
             </div>
@@ -715,6 +720,16 @@ export default function CreateScheduleMock() {
             </button>
           ))}
         </div>
+
+        {previousYearPapers.length === 0 && !loadingQ && (
+          <Card>
+            <CardBody className="py-10 text-center text-sm text-muted">
+              No previous year papers in the bank yet. When adding or importing questions, fill in the{" "}
+              <strong className="text-ink">Source</strong> field (for example <em>JNVST 2024</em>) and the paper
+              will appear here.
+            </CardBody>
+          </Card>
+        )}
 
         {/* Paper grid */}
         <div className="grid gap-4 sm:grid-cols-2">

@@ -5,6 +5,7 @@ import { Badge, Button, Card, CardBody, Tabs, type TabItem, useToast } from "@/u
 import { PageHeader } from "@/components/PageHeader";
 import { formatDateTime } from "@/lib/format";
 import { supabase } from "@/lib/supabaseClient";
+import { finalizeExpiredAttempts } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/cn";
 
@@ -38,6 +39,7 @@ export default function MockTests() {
 
   const loadTests = useCallback(async () => {
     setLoading(true);
+    await finalizeExpiredAttempts();
 
     // Load all non-draft tests
     const { data: testData, error } = await supabase
@@ -80,18 +82,18 @@ export default function MockTests() {
     {
       id: "available",
       label: "Available",
-      count: tests.filter((m) => (m.status === "live" || m.status === "scheduled") && !attempts[m.id]).length,
+      count: tests.filter((m) => (m.status === "live" || m.status === "scheduled") && attempts[m.id]?.status !== "submitted").length,
     },
     {
       id: "completed",
       label: "Completed",
-      count: tests.filter((m) => !!attempts[m.id]).length,
+      count: tests.filter((m) => attempts[m.id]?.status === "submitted").length,
     },
   ];
 
   const filtered = tests.filter((m) => {
-    if (tab === "available") return (m.status === "live" || m.status === "scheduled") && !attempts[m.id];
-    if (tab === "completed") return !!attempts[m.id];
+    if (tab === "available") return (m.status === "live" || m.status === "scheduled") && attempts[m.id]?.status !== "submitted";
+    if (tab === "completed") return attempts[m.id]?.status === "submitted";
     return true;
   });
 
@@ -118,7 +120,7 @@ export default function MockTests() {
           <span className="flex size-7 items-center justify-center rounded-lg bg-brand-500 text-white font-bold text-xs shadow-xs">
             i
           </span>
-          <span>Each standard JNVST mock has <strong>80 questions</strong> (100 marks) to finish in <strong>120 minutes</strong> with no negative marking.</span>
+          <span>A full JNVST mock has <strong>80 questions</strong> (100 marks) in <strong>120 minutes</strong> with no negative marking. Tests open when your teacher makes them live.</span>
         </div>
       </div>
 
@@ -155,8 +157,9 @@ export default function MockTests() {
           {filtered.map((m) => {
             const meta = statusMeta[m.status] ?? { tone: "neutral" as const, label: m.status };
             const attempt = attempts[m.id];
-            const canStart = m.status === "live" && !attempt;
-            const done = !!attempt;
+            const done = attempt?.status === "submitted";
+            const inProgress = attempt?.status === "in_progress";
+            const canStart = m.status === "live" && !done;
             const scorePct = done && attempt.score !== null ? Math.round((attempt.score / m.total_marks) * 100) : null;
 
             return (
@@ -236,7 +239,7 @@ export default function MockTests() {
                           size="md"
                           className="bg-emerald-600 hover:bg-emerald-700 shadow-sm"
                         >
-                          Start Test Now
+                          {inProgress ? "Resume Test" : "Start Test Now"}
                         </Button>
                       </Link>
                     ) : m.status === "scheduled" ? (

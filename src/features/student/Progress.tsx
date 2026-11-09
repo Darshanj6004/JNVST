@@ -56,13 +56,14 @@ export default function Progress() {
     // Submitted attempts for this student
     const { data: attempts } = await sb
       .from("exam_attempts")
-      .select("id, score, mock_tests(title, total_marks, scheduled_at)")
+      .select("id, mock_test_id, score, mock_tests(title, total_marks, scheduled_at)")
       .eq("student_id", user.id)
       .eq("status", "submitted")
       .order("submitted_at", { ascending: true });
 
     const att = (attempts ?? []) as {
       id: string;
+      mock_test_id: string;
       score: number;
       mock_tests: { title: string; total_marks: number; scheduled_at: string };
     }[];
@@ -74,45 +75,36 @@ export default function Progress() {
       setOverallAcc(Math.round(pcts.reduce((s, v) => s + v, 0) / pcts.length));
       setBestScore(Math.round(Math.max(...pcts)));
 
-      // Score trend without artificial class average duplicate
+      // Class average per test (server computes; no other student's data exposed)
+      const { data: avgs } = await sb.rpc("my_test_class_averages");
+      const avgMap: Record<string, number> = {};
+      for (const r of (avgs ?? []) as { mock_test_id: string; avg_pct: number }[]) avgMap[r.mock_test_id] = Math.round(r.avg_pct);
+
       setTrend(
         att.map((a) => {
           const scoreVal = Math.round((a.score / (a.mock_tests?.total_marks || 100)) * 100);
           return {
             label: (a.mock_tests?.title ?? "").slice(0, 12),
             score: scoreVal,
-            average: scoreVal,
+            average: avgMap[a.mock_test_id] ?? scoreVal,
           };
         })
       );
     }
 
-    // Get this student's exam answers with question details
-    const { data: answers } = await sb
-      .from("exam_answers")
-      .select("is_correct, questions(subject_code, topic_name)")
-      .in("attempt_id", att.map((a) => a.id));
-
-    const ans = (answers ?? []) as {
-      is_correct: boolean | null;
-      questions: { subject_code: string; topic_name: string };
-    }[];
-
-    // Subject accuracy
+    // Topic-level stats aggregated on the server
+    const { data: stats } = await sb.rpc("my_topic_stats");
     const subMap: Record<string, { correct: number; total: number }> = {};
     const topicMap: Record<string, { correct: number; total: number; subject: string }> = {};
-
-    for (const a of ans) {
-      const code = a.questions?.subject_code ?? "other";
-      const topic = a.questions?.topic_name ?? "Unknown";
-      if (!subMap[code]) subMap[code] = { correct: 0, total: 0 };
-      subMap[code].total++;
-      if (a.is_correct) subMap[code].correct++;
-
-      const key = `${code}:${topic}`;
-      if (!topicMap[key]) topicMap[key] = { correct: 0, total: 0, subject: code };
-      topicMap[key].total++;
-      if (a.is_correct) topicMap[key].correct++;
+    for (const r of (stats ?? []) as { subject_code: string; topic_name: string; total: number; correct: number }[]) {
+      const code = r.subject_code;
+      subMap[code] ??= { correct: 0, total: 0 };
+      subMap[code].total += r.total;
+      subMap[code].correct += r.correct;
+      const key = `${code}:${r.topic_name}`;
+      topicMap[key] ??= { correct: 0, total: 0, subject: code };
+      topicMap[key].total += r.total;
+      topicMap[key].correct += r.correct;
     }
 
     setSubjectAccuracy(

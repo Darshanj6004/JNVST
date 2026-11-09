@@ -65,7 +65,6 @@ export default function QuestionBank() {
   useEffect(() => { loadQuestions(); }, [loadQuestions]);
 
   const filtered = useMemo(() => {
-    const subjectCode = subjects.find((s) => s.id === subject)?.name.toLowerCase().replace(/ test$/, "").replace(/ /g, "_");
     return questions.filter((q) => {
       if (subject !== "all") {
         // match by subject_code

@@ -1,36 +1,50 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Navigate, useNavigate, useParams } from "react-router";
-import { ArrowLeft, ArrowRight, Bookmark, Check, Flag, Loader2, PanelRightClose } from "lucide-react";
-import { Badge, Button, Card, CardBody, useToast } from "@/ui";
+import { ArrowLeft, ArrowRight, Bookmark, Check, CloudOff, Flag, Loader2, PanelRightClose } from "lucide-react";
+import { Button, Card, CardBody, useToast } from "@/ui";
 import { QuestionPalette, PaletteLegend, type QState } from "@/components/QuestionPalette";
 import { TimerBadge } from "@/components/TimerBadge";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
-import { useCountdown } from "@/lib/hooks";
-import { supabase } from "@/lib/supabaseClient";
+import { useDeadline } from "@/lib/hooks";
+import { db, rpc } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/cn";
 
-type DBQuestion = {
-  id: string;
+type Opt = "A" | "B" | "C" | "D";
+
+type PaperQuestion = {
+  question_id: string;
+  order_index: number;
   question_text: string;
   option_a: string;
   option_b: string;
   option_c: string;
   option_d: string;
-  correct_option: "A" | "B" | "C" | "D";
-  marks: number;
   image_url: string | null;
-  explanation: string | null;
+  marks: number;
+  subject_code: string;
+  subject_name: string;
 };
 
-type DBTest = {
-  id: string;
+type StartInfo = {
+  attempt_id: string;
+  status: string;
+  deadline: string;
+  server_now: string;
   title: string;
   pattern: string;
   duration_minutes: number;
-  total_questions: number;
   total_marks: number;
-  status: string;
+  total_questions: number;
+};
+
+type SubmitResult = {
+  score: number;
+  total_marks: number;
+  total_correct: number;
+  total_attempted: number;
+  total_questions: number;
+  title: string;
 };
 
 export default function LiveExam() {
@@ -39,203 +53,194 @@ export default function LiveExam() {
   const { user } = useAuth();
   const { toast } = useToast();
 
-  const [test, setTest] = useState<DBTest | null>(null);
-  const [paper, setPaper] = useState<DBQuestion[]>([]);
-  const [attemptId, setAttemptId] = useState<string | null>(null);
+  const [test, setTest] = useState<StartInfo | null>(null);
+  const [paper, setPaper] = useState<PaperQuestion[]>([]);
+  const [deadlineMs, setDeadlineMs] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [notFound, setNotFound] = useState(false);
+  const [unsaved, setUnsaved] = useState(0);
 
   const [idx, setIdx] = useState(0);
-  const [answers, setAnswers] = useState<Record<number, "A" | "B" | "C" | "D">>({});
+  const [answers, setAnswers] = useState<Record<number, Opt>>({});
   const [marked, setMarked] = useState<Set<number>>(new Set());
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
 
-  const saveQueueRef = useRef<Set<number>>(new Set());
-  const savingRef = useRef(false);
+  // Refs mirror state so async save/submit never read stale values.
+  const answersRef = useRef(answers);
+  const markedRef = useRef(marked);
+  const paperRef = useRef(paper);
+  answersRef.current = answers;
+  markedRef.current = marked;
+  paperRef.current = paper;
 
-  // Load test + questions + create/resume attempt
+  const pendingRef = useRef<Set<number>>(new Set());
+  const flushingRef = useRef<Promise<void> | null>(null);
+  const timerRef = useRef<number | null>(null);
+  const submittedRef = useRef(false);
+
+  // ── Load: start/resume attempt on the server, then fetch the paper ──
   useEffect(() => {
     if (!id || !user?.id) return;
+    let cancelled = false;
 
     (async () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const sb = supabase as any;
-
-      // Fetch test
-      const { data: testData, error: testErr } = await sb
-        .from("mock_tests")
-        .select("*")
-        .eq("id", id)
-        .single();
-
-      if (testErr || !testData) { setNotFound(true); setLoading(false); return; }
-      setTest(testData as DBTest);
-
-      // Fetch questions for this test via mock_test_questions join
-      const { data: mqData } = await sb
-        .from("mock_test_questions")
-        .select("question_id, order_index, questions(*)")
-        .eq("mock_test_id", id)
-        .order("order_index");
-
-      const questions: DBQuestion[] = (mqData ?? []).map(
-        (row: { questions: DBQuestion }) => row.questions
-      ).filter(Boolean);
-      setPaper(questions);
-
-      // Check for existing attempt
-      const { data: existingAttempt } = await sb
-        .from("exam_attempts")
-        .select("id, status")
-        .eq("student_id", user.id)
-        .eq("mock_test_id", id)
-        .maybeSingle();
-
-      if (existingAttempt) {
-        if (existingAttempt.status === "submitted") {
+      try {
+        const info = await rpc<StartInfo>("start_exam", { p_test_id: id });
+        if (cancelled) return;
+        if (info.status !== "in_progress") {
           navigate(`/student/result/${id}`, { replace: true });
           return;
         }
-        setAttemptId(existingAttempt.id);
+        // Server clock offset so a wrong device clock can't extend the exam.
+        const offset = Date.parse(info.server_now) - Date.now();
+        setDeadlineMs(Date.parse(info.deadline) - offset);
+        setTest(info);
 
-        // Load saved answers
-        const { data: savedAnswers } = await sb
+        const questions = await rpc<PaperQuestion[]>("get_exam_paper", { p_test_id: id });
+        if (cancelled) return;
+        setPaper(questions ?? []);
+
+        const { data: saved } = await db
           .from("exam_answers")
           .select("question_id, selected_option, is_marked_for_review")
-          .eq("attempt_id", existingAttempt.id);
+          .eq("attempt_id", info.attempt_id);
 
-        const aMap: Record<number, "A" | "B" | "C" | "D"> = {};
-        const markedSet = new Set<number>();
-        for (const a of savedAnswers ?? []) {
-          const qIdx = questions.findIndex((q) => q.id === a.question_id);
-          if (qIdx >= 0) {
-            if (a.selected_option) aMap[qIdx] = a.selected_option;
-            if (a.is_marked_for_review) markedSet.add(qIdx);
-          }
+        const aMap: Record<number, Opt> = {};
+        const mSet = new Set<number>();
+        for (const a of (saved ?? []) as { question_id: string; selected_option: Opt | null; is_marked_for_review: boolean }[]) {
+          const qi = (questions ?? []).findIndex((q) => q.question_id === a.question_id);
+          if (qi < 0) continue;
+          if (a.selected_option) aMap[qi] = a.selected_option;
+          if (a.is_marked_for_review) mSet.add(qi);
         }
         setAnswers(aMap);
-        setMarked(markedSet);
-      } else {
-        // Create new attempt
-        const { data: newAttempt, error: aErr } = await sb
-          .from("exam_attempts")
-          .insert({ student_id: user.id, mock_test_id: id, status: "in_progress" })
-          .select("id")
-          .single();
-
-        if (aErr || !newAttempt) {
-          toast({ type: "error", title: "Cannot start test", message: aErr?.message ?? "Try again." });
-          navigate("/student/mock-tests");
-          return;
-        }
-        setAttemptId(newAttempt.id);
+        setMarked(mSet);
+      } catch (e) {
+        if (cancelled) return;
+        toast({ type: "error", title: "Cannot open test", message: (e as Error).message });
+        setNotFound(true);
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-
-      setLoading(false);
     })();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, user?.id]);
 
-  // Save a single answer to Supabase (debounced via queue)
-  const flushSaveQueue = useCallback(async () => {
-    if (savingRef.current || saveQueueRef.current.size === 0 || !attemptId) return;
-    savingRef.current = true;
-    const toSave = [...saveQueueRef.current];
-    saveQueueRef.current.clear();
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const sb = supabase as any;
-    for (const qIdx of toSave) {
-      const q = paper[qIdx];
-      if (!q) continue;
-      await sb.from("exam_answers").upsert({
-        attempt_id: attemptId,
-        question_id: q.id,
-        selected_option: answers[qIdx] ?? null,
-        is_marked_for_review: marked.has(qIdx),
-      }, { onConflict: "attempt_id,question_id" });
+  // ── Autosave: batch pending question indexes into one upsert ──
+  const flush = useCallback(async (): Promise<void> => {
+    if (flushingRef.current) {
+      await flushingRef.current;
     }
-    savingRef.current = false;
-  }, [attemptId, answers, marked, paper]);
+    if (!test || pendingRef.current.size === 0) return;
 
-  // Queue a save whenever answers change
-  const queueSave = useCallback((qIdx: number) => {
-    saveQueueRef.current.add(qIdx);
-    setTimeout(flushSaveQueue, 800);
-  }, [flushSaveQueue]);
+    const idxs = [...pendingRef.current];
+    pendingRef.current.clear();
+    const rows = idxs
+      .map((i) => {
+        const q = paperRef.current[i];
+        if (!q) return null;
+        return {
+          attempt_id: test.attempt_id,
+          question_id: q.question_id,
+          selected_option: answersRef.current[i] ?? null,
+          is_marked_for_review: markedRef.current.has(i),
+        };
+      })
+      .filter(Boolean);
 
-  const handleAnswer = (i: number, option: "A" | "B" | "C" | "D") => {
-    setAnswers((a) => ({ ...a, [i]: option }));
+    const run = (async () => {
+      const { error } = await db.from("exam_answers").upsert(rows, { onConflict: "attempt_id,question_id" });
+      if (error) {
+        // Put them back so the next flush retries.
+        idxs.forEach((i) => pendingRef.current.add(i));
+      }
+      setUnsaved(pendingRef.current.size);
+    })();
+    flushingRef.current = run;
+    await run;
+    flushingRef.current = null;
+  }, [test]);
+
+  const queueSave = useCallback(
+    (i: number) => {
+      pendingRef.current.add(i);
+      setUnsaved(pendingRef.current.size);
+      if (timerRef.current) window.clearTimeout(timerRef.current);
+      timerRef.current = window.setTimeout(() => void flush(), 600);
+    },
+    [flush],
+  );
+
+  // Retry unsaved answers every 10 s (e.g. after Wi-Fi drops).
+  useEffect(() => {
+    const t = window.setInterval(() => {
+      if (pendingRef.current.size > 0) void flush();
+    }, 10000);
+    return () => window.clearInterval(t);
+  }, [flush]);
+
+  // Warn before closing the tab mid-exam.
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (submittedRef.current) return;
+      e.preventDefault();
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, []);
+
+  const handleAnswer = (i: number, option: Opt) => {
+    setAnswers((a) => {
+      const next = { ...a, [i]: option };
+      answersRef.current = next;
+      return next;
+    });
     queueSave(i);
   };
 
   const toggleMark = () => {
     setMarked((prev) => {
       const next = new Set(prev);
-      next.has(idx) ? next.delete(idx) : next.add(idx);
+      if (next.has(idx)) next.delete(idx);
+      else next.add(idx);
+      markedRef.current = next;
       return next;
     });
     queueSave(idx);
   };
 
-  const durationSec = (test?.duration_minutes ?? 120) * 60;
-
-  const submit = useCallback(async () => {
-    if (!attemptId || !test || !user?.id) return;
-    setSubmitting(true);
-
-    // Flush any pending saves
-    await flushSaveQueue();
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const sb = supabase as any;
-
-    // Calculate score and mark correct/wrong
-    let score = 0;
-    let correct = 0;
-    for (let i = 0; i < paper.length; i++) {
-      const q = paper[i];
-      const sel = answers[i] ?? null;
-      const isCorrect = sel !== null && sel === q.correct_option;
-      if (isCorrect) { score += q.marks; correct++; }
-
-      if (sel) {
-        await sb.from("exam_answers").upsert({
-          attempt_id: attemptId,
-          question_id: q.id,
-          selected_option: sel,
-          is_marked_for_review: marked.has(i),
-          is_correct: isCorrect,
-        }, { onConflict: "attempt_id,question_id" });
+  const submit = useCallback(
+    async (auto = false) => {
+      if (!test || submittedRef.current) return;
+      submittedRef.current = true;
+      setSubmitting(true);
+      try {
+        await flush();
+        if (pendingRef.current.size > 0) await flush(); // one retry
+        const res = await rpc<SubmitResult>("submit_exam", { p_attempt_id: test.attempt_id });
+        if (auto) toast({ type: "info", title: "Time is up", message: "Your test was submitted automatically." });
+        navigate(`/student/result/${id}`, { replace: true, state: res });
+      } catch (e) {
+        submittedRef.current = false;
+        setSubmitting(false);
+        toast({
+          type: "error",
+          title: "Submit failed",
+          message: `${(e as Error).message} Your answers are saved — try again.`,
+        });
       }
-    }
+    },
+    [test, flush, navigate, id, toast],
+  );
 
-    // Update attempt to submitted
-    await sb.from("exam_attempts").update({
-      status: "submitted",
-      submitted_at: new Date().toISOString(),
-      score: Math.round(score * 100) / 100,
-      total_attempted: Object.keys(answers).length,
-      total_correct: correct,
-    }).eq("id", attemptId);
-
-    setSubmitting(false);
-    navigate(`/student/result/${test.id}`, {
-      state: {
-        score: Math.round(score),
-        total: test.total_marks,
-        correct,
-        totalQ: paper.length,
-        title: test.title,
-        attemptId,
-      },
-    });
-  }, [attemptId, test, user?.id, paper, answers, marked, flushSaveQueue, navigate]);
-
-  // Auto-submit when timer hits zero
-  const remaining = useCountdown(durationSec, !loading, () => submit());
+  const remaining = useDeadline(deadlineMs, () => void submit(true));
+  const durationSec = (test?.duration_minutes ?? 120) * 60;
 
   const opts = ["A", "B", "C", "D"] as const;
 
@@ -273,9 +278,15 @@ export default function LiveExam() {
           </div>
         </div>
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-          <div className="hidden md:flex items-center gap-1.5 text-xs text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-lg font-medium">
-            <Check className="size-3.5 stroke-[2.5]" /> Auto-saving answers
-          </div>
+          {unsaved > 0 ? (
+            <div className="flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 px-2.5 py-1 rounded-lg font-medium">
+              <CloudOff className="size-3.5" /> <span className="hidden md:inline">Saving…</span> {unsaved}
+            </div>
+          ) : (
+            <div className="hidden md:flex items-center gap-1.5 text-xs text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-lg font-medium">
+              <Check className="size-3.5 stroke-[2.5]" /> All answers saved
+            </div>
+          )}
           <TimerBadge remaining={remaining} total={durationSec} />
           <Button
             onClick={() => setConfirmOpen(true)}
@@ -423,7 +434,7 @@ export default function LiveExam() {
       <ConfirmDialog
         open={confirmOpen}
         onClose={() => setConfirmOpen(false)}
-        onConfirm={submit}
+        onConfirm={() => void submit()}
         loading={submitting}
         title="Submit your test?"
         confirmLabel="Yes, submit"

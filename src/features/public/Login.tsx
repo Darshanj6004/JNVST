@@ -26,12 +26,8 @@ export default function Login() {
     try {
       await login({ username: username.trim(), password, role });
       navigate(role === "teacher" ? "/teacher/dashboard" : "/student/dashboard");
-    } catch {
-      setError(
-        role === "student"
-          ? "Invalid roll number, username, or password. Please verify with your teacher."
-          : "Invalid teacher credentials. Please check your username/email and password."
-      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Login failed. Please try again.");
     } finally {
       setLoading(false);
     }

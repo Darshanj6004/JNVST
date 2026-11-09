@@ -118,13 +118,13 @@ export default function Instructions() {
               </Button>
             </Link>
             <Button
-              disabled={!agreed}
+              disabled={!agreed || test.status !== "live"}
               size="md"
               onClick={() => navigate(`/student/exam/${test.id}`)}
               className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 font-bold shadow-sm"
               rightIcon={<ShieldCheck className="size-4" />}
             >
-              Start Examination Now
+              {test.status === "live" ? "Start Examination Now" : "Test is not open yet"}
             </Button>
           </div>
         </CardBody>

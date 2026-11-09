@@ -27,6 +27,7 @@ import QuestionBank from "@/features/teacher/QuestionBank";
 import AddEditQuestion from "@/features/teacher/AddEditQuestion";
 import ExcelImport from "@/features/teacher/ExcelImport";
 import CreatePracticeSet from "@/features/teacher/CreatePracticeSet";
+import PracticeSets from "@/features/teacher/PracticeSets";
 import CreateScheduleMock from "@/features/teacher/CreateScheduleMock";
 import Reports from "@/features/teacher/Reports";
 import WeakStudents from "@/features/teacher/WeakStudents";
@@ -77,6 +78,7 @@ export const router = createBrowserRouter([
       { path: "questions/new", Component: AddEditQuestion },
       { path: "questions/:id/edit", Component: AddEditQuestion },
       { path: "questions/import", Component: ExcelImport },
+      { path: "practice-sets", Component: PracticeSets },
       { path: "practice-sets/new", Component: CreatePracticeSet },
       { path: "mock-tests", Component: MockTestManagement },
       { path: "mock-tests/new", Component: CreateScheduleMock },
